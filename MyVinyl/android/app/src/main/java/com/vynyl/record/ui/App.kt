@@ -21,6 +21,9 @@ import com.vynyl.record.pro.Pro
 import com.vynyl.record.ui.paywall.Paywall
 import com.vynyl.record.ui.player.Player
 import com.vynyl.record.ui.studio.Studio
+import com.vynyl.record.ui.components.Guide
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.CircleShape
 import com.vynyl.record.ui.theme.*
 import com.vynyl.record.ui.vault.Vault
 
@@ -28,8 +31,11 @@ import com.vynyl.record.ui.vault.Vault
 @Composable
 fun VynylApp() {
     var tab by rememberSaveable { mutableStateOf("studio") }
+    var guide by rememberSaveable { mutableStateOf(false) }
     val records by RecordStore.records.collectAsState()
     var playingId by rememberSaveable { mutableStateOf<String?>(null) }
+    var editingId by rememberSaveable { mutableStateOf<String?>(null) }
+    val editing = editingId?.let { id -> records.firstOrNull { it.id == id } }
     val playing = playingId?.let { id -> records.firstOrNull { it.id == id } }
     val paywall by Pro.paywall.collectAsState()
 
@@ -44,9 +50,9 @@ fun VynylApp() {
         },
     ) {
         Box(Modifier.weight(1f).fillMaxWidth().statusBarsPadding()) {
-            if (tab == "studio") Studio(recordCount = records.size, onDone = { r -> tab = "vault"; playingId = r.id })
+            if (tab == "studio") Studio(recordCount = records.size, edit = editing, onCancelEdit = { editingId = null }, onDone = { r -> editingId = null; tab = "vault"; playingId = r.id })
             else Vault(records = records, onPlay = { playingId = it.id }, onNew = { tab = "studio" })
-            playing?.let { Player(record = it, onClose = { playingId = null }) }
+            playing?.let { Player(record = it, onClose = { playingId = null }, onEdit = { r -> playingId = null; editingId = r.id; tab = "studio" }) }
         }
         Row(
             Modifier.fillMaxWidth().background(V.stone)
@@ -65,7 +71,16 @@ fun VynylApp() {
                     Text(label, style = sansStyle(11, c))
                 }
             }
+            val gc = if (guide) V.amberBright else V.muted
+            Column(
+                Modifier.widthIn(min = 96.dp).heightIn(min = 48.dp).clickable { guide = true },
+                horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                Box(Modifier.padding(top = 2.dp).size(18.dp).border(1.5.dp, gc, CircleShape), contentAlignment = Alignment.Center) { Text("?", style = sansStyle(11, gc, 700)) }
+                Text("Guide", style = sansStyle(11, gc))
+            }
         }
+        if (guide) Guide { guide = false }
     }
     Paywall()
     }

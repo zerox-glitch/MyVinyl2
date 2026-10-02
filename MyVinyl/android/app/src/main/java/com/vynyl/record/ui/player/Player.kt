@@ -1,5 +1,6 @@
 package com.vynyl.record.ui.player
 
+import com.vynyl.record.pro.Free
 import com.vynyl.record.audio.NeedleDrop
 import com.vynyl.record.ui.components.NameplatePreview
 import android.app.Activity
@@ -168,7 +169,7 @@ private fun queryName(ctx: Context, uri: Uri): Long = runCatching {
 }.getOrDefault(-1L)
 
 @Composable
-fun Player(record: RecordMeta, onClose: () -> Unit) {
+fun Player(record: RecordMeta, onClose: () -> Unit, onEdit: (RecordMeta) -> Unit = {}) {
     val ctx = LocalContext.current
     val activity = ctx as Activity
     val view = LocalView.current
@@ -182,6 +183,15 @@ fun Player(record: RecordMeta, onClose: () -> Unit) {
     var video by remember { mutableStateOf<VideoJob?>(null) }
     var platePreview by remember { mutableStateOf(false) }
     var engaged by remember { mutableStateOf(false) }
+    // back to the Studio to change music, crackle, mood… free users get Free.REEDITS trips per record
+    val editsLeft = if (pro) Int.MAX_VALUE else max(0, Free.REEDITS - record.reedits)
+    fun backToStudio() {
+        if (!record.hasVoice) return
+        if (editsLeft <= 0) { Pro.openPaywall("Free records can go back to the Studio once. Go Pro to re-tune the music, crackle and mood as often as you like."); return }
+        val next = if (pro) record else record.copy(reedits = record.reedits + 1)
+        engaged = false
+        scope.launch { if (!pro) RecordStore.put(next); onEdit(next) }
+    }
     var contact by remember { mutableStateOf(false) }
     var reset by remember { mutableIntStateOf(0) }
     var seekToken by remember { mutableIntStateOf(0) }
@@ -454,6 +464,19 @@ fun Player(record: RecordMeta, onClose: () -> Unit) {
                             verticalAlignment = Alignment.CenterVertically,
                         ) { ProBadge(); Spacer(Modifier.width(8.dp)); Text("Gold nameplate on the plinth", style = sansStyle(11, V.cream.copy(alpha = 0.85f))) }
                     }
+                    if (record.hasVoice) {
+                        Row(
+                            Modifier.padding(top = 8.dp).clip(CircleShape).border(1.dp, V.brass.copy(alpha = 0.35f), CircleShape)
+                                .clickable { backToStudio() }.padding(start = 10.dp, end = 12.dp, top = 5.dp, bottom = 5.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text("↶  Back to Studio", style = sansStyle(11, V.cream.copy(alpha = 0.85f)))
+                            if (!pro) {
+                                if (editsLeft > 0) Text(" · $editsLeft free", style = sansStyle(11, V.muted))
+                                else { Spacer(Modifier.width(6.dp)); ProBadge() }
+                            }
+                        }
+                    } else Text("Pressed before re-editing existed — record it again to change its sound.", style = sansStyle(11, V.muted), modifier = Modifier.padding(top = 8.dp))
 
                     var waveW by remember { mutableIntStateOf(1) }
                     Box(Modifier.padding(top = 16.dp).fillMaxWidth().height(40.dp).onSizeChanged { waveW = max(1, it.width) }.pointerInputTap { x -> seek(x / waveW * dur) }) {

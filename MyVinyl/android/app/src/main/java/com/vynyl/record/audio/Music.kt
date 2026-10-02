@@ -36,6 +36,7 @@ private val SAW by lazy { table(DoubleArray(14) { 1.0 / (it + 1) }) }
 private val REED by lazy { table(doubleArrayOf(1.0, 0.08, 0.55, 0.06, 0.38, 0.05, 0.25, 0.04, 0.16, 0.03, 0.1)) }
 private val ORGAN by lazy { table(doubleArrayOf(1.0, 0.9, 0.3, 0.55, 0.0, 0.2, 0.0, 0.3)) }
 private val WARM by lazy { table(doubleArrayOf(1.0, 0.35, 0.12, 0.05)) }
+private val WHISTLE by lazy { table(doubleArrayOf(1.0, 0.12, 0.05, 0.02)) }
 
 private fun bed(seconds: Double) = FloatArray(floor(SR * seconds).toInt())
 
@@ -447,63 +448,73 @@ private fun blues(): FloatArray {
     return finish(out, 0.35, 0.22, 0.24)
 }
 
-/** Celtic Morning — a tin whistle over harp and a soft drone, in lilting six-eight. */
+/** Celtic Morning — a D-major jig in six-eight: tin whistle, harp arpeggios, a pipe drone and a soft bodhrán. */
 private fun celtic(): FloatArray {
-    val e = 0.25; val out = FloatArray(floor(SR * e * 48).toInt())
-    val prog = listOf(ints(50, 57, 62, 66), ints(48, 55, 60, 64), ints(45, 52, 57, 61), ints(50, 57, 62, 66))
-    prog.forEachIndexed { bar, ch ->
-        val t0 = bar * 12 * e
-        tone(out, t0, 12 * e, midi(ch[0] - 12), 0.08, REED, a = 0.3, r = 0.3, bright = 0.05)
-        ints(0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1).forEachIndexed { i, k -> pluck(out, t0 + i * e, midi(ch[k] + 12), 0.2, 0.998, 0.35, bar * 12 + i) }
+    val e = 0.2; val out = FloatArray(floor(SR * e * 48).toInt())
+    val D = ints(50, 57, 62, 66); val G = ints(43, 55, 59, 62); val A = ints(45, 52, 57, 61)
+    ints(38, 45).forEach { n -> tone(out, 0.0, 48 * e, midi(n), 0.035, REED, a = 0.6, r = 0.6, bright = 0.04) }
+    listOf(D, D, G, D, D, G, A, D).forEachIndexed { bar, ch ->
+        val t0 = bar * 6 * e
+        ints(0, 1, 2, 3, 2, 1).forEachIndexed { i, k -> pluck(out, t0 + i * e, midi(ch[k]), if (i != 0) 0.11 else 0.15, 0.997, 0.4, bar * 6 + i) }
+        kick(out, t0, 0.16, 120.0, 70.0, 0.25); kick(out, t0 + 3 * e, 0.09, 120.0, 70.0, 0.2)
+        brush(out, t0 + 5 * e, 0.025, bar * 5 + 3, 0.05)
     }
-    line(arrayOf(nd(74, 3.0), nd(76, 1.0), nd(78, 2.0), nd(81, 3.0), nd(78, 3.0), nd(76, 2.0), nd(74, 1.0), nd(73, 3.0), nd(74, 6.0), nd(69, 3.0), nd(71, 3.0), nd(74, 6.0), nd(74, 12.0))) { t, n, d ->
-        tone(out, t * e, d * e * 0.92, midi(n), 0.1, WARM, a = 0.03, r = 0.1, vib = 5.5, vibDepth = 0.006, bright = 0.5)
+    line(arrayOf(nd(78, 2.0), nd(76, 1.0), nd(74, 2.0), nd(76, 1.0), nd(78, 1.0), nd(81, 1.0), nd(78, 1.0), nd(76, 2.0), nd(74, 1.0), nd(79, 2.0), nd(78, 1.0), nd(76, 2.0), nd(74, 1.0), nd(78, 3.0), nd(74, 3.0),
+        nd(78, 2.0), nd(76, 1.0), nd(74, 2.0), nd(76, 1.0), nd(79, 1.0), nd(83, 1.0), nd(81, 1.0), nd(79, 2.0), nd(78, 1.0), nd(76, 2.0), nd(74, 1.0), nd(73, 2.0), nd(76, 1.0), nd(74, 6.0))) { t, n, d ->
+        tone(out, t * e, d * e * 0.88, midi(n), 0.08, WHISTLE, a = 0.015, r = 0.06, vib = 5.5, vibDepth = 0.004, bright = 0.6)
     }
-    return finish(out, 0.55, 0.32, 0.24)
+    return finish(out, 0.5, 0.3, 0.24)
 }
 
-/** Cinematic Dawn — swelling strings, distant timpani and a glassy bell. */
+/** Cinematic Dawn — Dm–B♭–F–C: string swells, a low cello line, a rising horn motif, a bell and a timpani roll. */
 private fun cinematic(): FloatArray {
     val out = bed(16.0)
-    val prog = listOf(ints(38, 50, 57, 62, 65), ints(34, 46, 53, 58, 62), ints(41, 53, 57, 60, 65), ints(36, 48, 55, 60, 64))
+    val prog = listOf(ints(57, 62, 65, 69), ints(58, 62, 65, 70), ints(57, 60, 65, 69), ints(55, 60, 64, 67)); val roots = ints(38, 34, 41, 36)
     prog.forEachIndexed { bar, ch ->
         val t0 = bar * 4.0
-        ch.forEachIndexed { k, n -> tone(out, t0, 4.1, midi(n), if (k != 0) 0.08 else 0.12, SAW, a = 1.6, r = 1.0, unison = 3, detune = 0.005, vib = 4.8, vibDepth = 0.0025, bright = 0.1) }
-        kick(out, t0, 0.35, 90.0, 55.0, 1.2); kick(out, t0 + 3.5, 0.18, 90.0, 55.0, 0.8)
-        fm(out, t0 + 1, 3.0, midi(ch[3] + 12), 0.06, 3.5, 1.2, 0.9)
+        ch.forEach { n -> tone(out, t0, 4.1, midi(n), 0.055, SAW, a = 1.4, r = 1.2, unison = 3, detune = 0.004, vib = 4.8, vibDepth = 0.002, bright = 0.06) }
+        tone(out, t0, 4.1, midi(roots[bar]), 0.12, WARM, a = 0.8, r = 1.0, unison = 2, detune = 0.003, bright = 0.2)
+        if (bar % 2 == 0) kick(out, t0, 0.3, 75.0, 60.0, 1.4)
+        fm(out, t0 + 2, 3.0, midi(ch[3] + 12), 0.03, 2.0, 0.8, 1.2)
     }
-    return finish(out, 0.9, 0.5, 0.24)
+    for (i in 0 until 8) kick(out, 15 + i * 0.12, 0.04 + i * 0.015, 75.0, 60.0, 0.6)
+    line(arrayOf(nd(62, 2.0), nd(65, 1.0), nd(69, 1.0), nd(70, 3.0), nd(65, 1.0), nd(69, 2.0), nd(72, 2.0), nd(74, 2.0), nd(72, 2.0))) { t, n, d ->
+        tone(out, t, d * 0.95, midi(n), 0.075, SAW, a = 0.25, r = 0.5, vib = 4.5, vibDepth = 0.003, bright = 0.04)
+    }
+    return finish(out, 0.85, 0.45, 0.24)
 }
 
-/** Sunday Soul — a 60s slow groove: organ, chicken-pick guitar, round bass, kick and snare. */
+/** Sunday Soul — a 12/8 gospel ballad: Leslie organ, triplet electric piano, round bass, backbeat and ride. */
 private fun soul(): FloatArray {
-    val beat = 60.0 / 74; val out = FloatArray(floor(SR * beat * 16).toInt())
-    val chords = listOf(ints(60, 64, 67), ints(57, 60, 64), ints(62, 65, 69), ints(55, 59, 62, 65)); val roots = ints(36, 33, 38, 31)
-    val at = doubleArrayOf(0.0, 1.5, 2.0, 3.0)
+    val beat = 60.0 / 64; val trip = beat / 3; val out = FloatArray(floor(SR * beat * 16).toInt())
+    val chords = listOf(ints(52, 55, 59, 64), ints(55, 60, 64, 67), ints(53, 57, 60, 65), ints(53, 57, 59, 65)); val roots = ints(36, 33, 38, 31)
+    val bass = arrayOf(doubleArrayOf(0.0, 0.0), doubleArrayOf(5.0 / 3, 0.0), doubleArrayOf(2.0, 7.0), doubleArrayOf(3.0, 12.0), doubleArrayOf(11.0 / 3, 7.0))
     chords.forEachIndexed { bar, ch ->
         val t0 = bar * 4 * beat
-        kick(out, t0, 0.5); kick(out, t0 + 2.75 * beat, 0.35)
-        for (b in ints(1, 3)) brush(out, t0 + b * beat, 0.11, bar * 9 + b, 0.18)
-        ints(0, 0, 7, 12).forEachIndexed { b, iv -> pluck(out, t0 + at[b] * beat, midi(roots[bar] + iv), 0.55, 0.993, 0.5, bar * 4 + b) }
-        ch.forEach { n -> tone(out, t0, 4 * beat, midi(n), 0.05, ORGAN, a = 0.15, r = 0.3, vib = 6.2, vibDepth = 0.0025) }
-        for (b in ints(1, 3)) ch.forEachIndexed { k, n -> pluck(out, t0 + b * beat + k * 0.012, midi(n + 12), 0.12, 0.98, 0.8, bar * 30 + b * 4 + k) }
+        ch.forEach { n -> tone(out, t0, 4 * beat, midi(n), 0.035, ORGAN, a = 0.2, r = 0.3, vib = 6.5, vibDepth = 0.003) }
+        for (i in 0 until 12) for (n in ch.drop(1)) fm(out, t0 + i * trip, 0.6, midi(n), if (i % 3 != 0) 0.018 else 0.03, 1.0, 1.0, 3.0)
+        bass.forEachIndexed { k, (b, iv) -> pluck(out, t0 + b * beat, midi(roots[bar] + iv.toInt()), 0.5, 0.995, 0.3, bar * 5 + k) }
+        kick(out, t0, 0.45); kick(out, t0 + (8.0 / 3) * beat, 0.3)
+        for (b in ints(1, 3)) { brush(out, t0 + b * beat, 0.09, bar * 9 + b, 0.16); kick(out, t0 + b * beat, 0.1, 200.0, 160.0, 0.12) }
+        for (i in 0 until 12) brush(out, t0 + i * trip, if (i % 3 != 0) 0.01 else 0.018, bar * 40 + i, 0.03)
     }
-    return finish(out, 0.4, 0.25, 0.24)
+    return finish(out, 0.45, 0.28, 0.24)
 }
 
-/** Porch Country — a banjo roll, boom-chick bass and a lazy fiddle. */
+/** Porch Country — G–C–D–G: alternating bass, a guitar "chick" with brushes, a banjo roll and a fiddle tune. */
 private fun country(): FloatArray {
     val beat = 60.0 / 104; val out = FloatArray(floor(SR * beat * 16).toInt())
-    val chords = listOf(ints(55, 59, 62, 67), ints(60, 64, 67, 72), ints(62, 66, 69, 74), ints(55, 59, 62, 67)); val roots = ints(43, 48, 50, 43)
+    val chords = listOf(ints(55, 59, 62, 67), ints(55, 60, 64, 67), ints(57, 62, 66, 69), ints(55, 59, 62, 67)); val roots = ints(43, 48, 50, 43)
     chords.forEachIndexed { bar, ch ->
-        val t0 = bar * 4 * beat
-        ints(0, 7, 0, 7).forEachIndexed { b, iv -> pluck(out, t0 + b * beat, midi(roots[bar] + iv - 12), 0.5, 0.993, 0.5, bar * 4 + b) }
-        ints(3, 1, 0, 3, 1, 0, 3, 2).forEachIndexed { i, k -> pluck(out, t0 + i * beat * 0.5, midi(ch[k]), 0.16, 0.985, 0.75, bar * 16 + i) }
+        val t0 = bar * 4 * beat; val r = roots[bar]
+        pluck(out, t0, midi(r), 0.5, 0.994, 0.35, bar * 4); pluck(out, t0 + 2 * beat, midi(r - 5), 0.45, 0.994, 0.35, bar * 4 + 1)
+        for (b in ints(1, 3)) { ch.forEachIndexed { k, n -> pluck(out, t0 + b * beat + k * 0.01, midi(n), 0.07, 0.97, 0.7, bar * 20 + b * 4 + k) }; brush(out, t0 + b * beat, 0.06, bar * 7 + b, 0.1) }
+        ints(0, 1, 3, 0, 1, 3, 0, 2).forEachIndexed { i, k -> pluck(out, t0 + i * beat * 0.5, midi(ch[k] + 12), 0.09, 0.975, 0.85, bar * 16 + i + 100) }
     }
-    line(arrayOf(nd(71, 2.0), nd(74, 2.0), nd(76, 3.0), nd(74, 1.0), nd(71, 2.0), nd(69, 2.0), nd(67, 4.0))) { t, n, d ->
-        tone(out, t * beat, d * beat * 0.95, midi(n), 0.09, SAW, a = 0.12, r = 0.2, vib = 5.6, vibDepth = 0.006, bright = 0.15)
+    line(arrayOf(nd(71, 1.0), nd(74, 1.0), nd(76, 1.0), nd(74, 1.0), nd(76, 2.0), nd(79, 1.0), nd(76, 1.0), nd(74, 1.5), nd(72, 0.5), nd(69, 1.0), nd(66, 1.0), nd(67, 4.0))) { t, n, d ->
+        tone(out, t * beat, d * beat * 0.92, midi(n), 0.07, SAW, a = 0.06, r = 0.15, vib = 5.6, vibDepth = 0.005, bright = 0.12)
     }
-    return finish(out, 0.3, 0.2, 0.24)
+    return finish(out, 0.28, 0.18, 0.24)
 }
 
 private val MAKERS: Map<String, () -> FloatArray> = mapOf(
@@ -535,8 +546,8 @@ val MUSIC: List<MusicBed> = listOf(
     MusicBed("lofi", "Lo-Fi Bedroom", "Dusty Rhodes chords over a lazy beat."),
     MusicBed("blues", "Blues Shuffle", "Boogie bass, organ stabs and a wailing reed."),
     MusicBed("celtic", "Celtic Morning", "Tin whistle and harp in a lilting six-eight."),
-    MusicBed("cinematic", "Cinematic Dawn", "Swelling strings, timpani and a glassy bell."),
-    MusicBed("soul", "Sunday Soul", "A 60s slow groove: organ, guitar and drums."),
+    MusicBed("cinematic", "Cinematic Dawn", "Rising horns over swelling strings and timpani."),
+    MusicBed("soul", "Sunday Soul", "A 12/8 gospel ballad: organ, keys and backbeat."),
     MusicBed("country", "Porch Country", "A banjo roll, boom-chick bass and a lazy fiddle."),
 )
 

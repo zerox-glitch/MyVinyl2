@@ -14,6 +14,8 @@ import { MOODS } from './presets'
 export const FREE = {
   maxSeconds: 3 * 60,
   maxRecords: 3,
+  /** times a free user may go back to the Studio to re-press one record */
+  reedits: 1,
   presets: ['clean', 'warm', 'dusty'],
   crackles: ['preset', 'crisp', 'ticktick', 'fireside', 'rain'],
   music: ['none', 'serenade', 'piano', 'hearth', 'musicbox'],

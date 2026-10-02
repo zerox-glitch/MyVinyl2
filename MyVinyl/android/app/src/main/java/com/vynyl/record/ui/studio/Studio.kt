@@ -1,5 +1,6 @@
 package com.vynyl.record.ui.studio
 
+import com.vynyl.record.data.StudioSettings
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
@@ -9,6 +10,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -74,7 +76,8 @@ private val ROMAN = listOf("I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX
 private data class RenderState(val p: Float, val stage: String)
 
 @Composable
-fun Studio(recordCount: Int, onDone: (RecordMeta) -> Unit) {
+/** [edit]: an existing record opened from the player — the Studio reloads its voice + settings and re-presses it in place. */
+fun Studio(recordCount: Int, onDone: (RecordMeta) -> Unit, edit: RecordMeta? = null, onCancelEdit: () -> Unit = {}) {
     val ent by Pro.entitlement.collectAsState()
     val pro = ent.pro
     val haptic = LocalHapticFeedback.current
@@ -101,6 +104,17 @@ fun Studio(recordCount: Int, onDone: (RecordMeta) -> Unit) {
     var withVoice by remember { mutableStateOf(false) }
     val hasVoice = source != null && !isDemo
     var render by remember { mutableStateOf<RenderState?>(null) }
+    LaunchedEffect(edit?.id) {
+        val e = edit ?: return@LaunchedEffect
+        val v = RecordStore.loadVoice(e.id) ?: return@LaunchedEffect
+        source = v; isDemo = false; srcName = null
+        meta = StudioMeta(title = e.title, recipient = e.recipient, sender = e.sender, dedication = e.dedication, occasion = e.occasion, date = e.date, sideA = e.sideA, sideB = e.sideB)
+        e.settings?.let { st ->
+            presetId = st.presetId; styleId = st.styleId; crackleId = st.crackleId; music = st.music
+            musicLevel = st.musicLevel; crackleLevel = st.crackleLevel; character = st.character; volume = st.volume; moodId = st.moodId
+        }
+        step = 2
+    }
 
     // ---- live preview (usePreview) ----
     val engine = remember { PreviewEngine() }
@@ -150,6 +164,17 @@ fun Studio(recordCount: Int, onDone: (RecordMeta) -> Unit) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                 Eyebrow("STUDIO · ${STEPS[step].uppercase()}")
                 ProButton()
+            }
+            edit?.let { e ->
+                Row(
+                    Modifier.padding(top = 12.dp).fillMaxWidth().clip(CircleShape).border(1.dp, V.amber.copy(alpha = 0.4f), CircleShape).background(V.amber.copy(alpha = 0.1f))
+                        .padding(start = 12.dp, end = 4.dp, top = 2.dp, bottom = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("Re-pressing “${e.title}”", style = sansStyle(11, V.cream.copy(alpha = 0.85f)), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                    Text("Cancel", style = sansStyle(11, V.muted), modifier = Modifier.clip(CircleShape)
+                        .clickable(enabled = render == null) { step = 0; source = null; onCancelEdit() }.padding(horizontal = 12.dp, vertical = 8.dp))
+                }
             }
             Row(Modifier.padding(top = 12.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 STEPS.forEachIndexed { i, _ ->
@@ -383,14 +408,15 @@ fun Studio(recordCount: Int, onDone: (RecordMeta) -> Unit) {
                 Btn("Continue", { step += 1 }, enabled = !(step == 0 && source == null))
             } else {
                 Btn("Press record", enabled = render == null && source != null, onClick = press@{
-                    if (!pro && recordCount >= Free.MAX_RECORDS) {
+                    if (edit == null && !pro && recordCount >= Free.MAX_RECORDS) {
                         Pro.openPaywall("Your free shelf holds ${Free.MAX_RECORDS} records and it’s full. Go Pro for unlimited records."); return@press
                     }
                     if (locked(Gate.Preset, presetId) || locked(Gate.Crackle, crackleId) || locked(Gate.Music, music) || locked(Gate.Style, styleId)) {
                         Pro.openPaywall("This record uses Pro sounds or wax. Go Pro to press it, or pick free options."); return@press
                     }
                     val src = source ?: return@press
-                    val id = UUID.randomUUID().toString()
+                    val id = edit?.id ?: UUID.randomUUID().toString()
+                    val prev = edit; val mood = moodId
                     val m = meta
                     val pId = presetId; val cId = crackleId; val mus = music; val sId = styleId
                     val ml = musicLevel; val cl = crackleLevel; val ch = character; val vol = volume
@@ -406,12 +432,17 @@ fun Studio(recordCount: Int, onDone: (RecordMeta) -> Unit) {
                         val master = withContext(Dispatchers.Default) { encodeWav(st) }
                         render = RenderState(0.98f, "Generating waveform")
                         val wave = withContext(Dispatchers.Default) { waveform(st.l) }
-                        val rec = RecordMeta(
+                        val settings = StudioSettings(pId, sId, cId, mus, ml, cl, ch, vol, mood)
+                        val fresh = RecordMeta(
                             id = id, title = m.title, recipient = m.recipient, sender = m.sender, dedication = m.dedication,
                             occasion = m.occasion, date = m.date, sideA = m.sideA, sideB = m.sideB,
                             presetId = pId, styleId = sId, duration = st.l.size / SR.toFloat(), wave = wave,
                             createdAt = System.currentTimeMillis(), favorite = false, crackleId = cId, musicId = mus,
+                            hasVoice = true, settings = settings,
                         )
+                        // re-pressing keeps the record's identity, photo, favourite and edit count
+                        val rec = prev?.let { fresh.copy(createdAt = it.createdAt, favorite = it.favorite, lastPlayedAt = it.lastPlayedAt, labelPhotoAdjust = it.labelPhotoAdjust, hasPhoto = it.hasPhoto, reedits = it.reedits) } ?: fresh
+                        RecordStore.saveVoice(id, src)
                         RecordStore.put(rec, master)
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         render = null; step = 0; source = null; srcName = null; isDemo = false

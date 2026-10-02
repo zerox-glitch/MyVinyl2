@@ -9,10 +9,19 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.File
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 
 /** Mirrors src/lib/db.ts. Metadata lives in records.json; audio and photos are files beside it. */
 @Serializable
 data class PhotoAdjust(val mode: String = "fill", val zoom: Float = 1f, val x: Float = 0f, val y: Float = 0f, val rot: Float = 0f, val bg: String = "blur")
+
+/** Everything the Studio needs to re-press a record from its original voice. */
+@Serializable
+data class StudioSettings(
+    val presetId: String, val styleId: String, val crackleId: String, val music: String,
+    val musicLevel: Float, val crackleLevel: Float, val character: Float, val volume: Float, val moodId: String? = null,
+)
 
 @Serializable
 data class RecordMeta(
@@ -22,6 +31,10 @@ data class RecordMeta(
     val createdAt: Long, val lastPlayedAt: Long? = null, val favorite: Boolean = false,
     val labelPhotoAdjust: PhotoAdjust? = null, val crackleId: String? = null, val musicId: String? = null,
     val hasPhoto: Boolean = false,
+    /** original voice saved beside the master, so the record can go back to the Studio */
+    val hasVoice: Boolean = false, val settings: StudioSettings? = null,
+    /** trips back to the Studio so far (free users get Free.REEDITS) */
+    val reedits: Int = 0,
 )
 
 object RecordStore {
@@ -39,6 +52,18 @@ object RecordStore {
     fun masterFile(id: String) = File(dir, "$id.wav")
     fun photoFile(id: String) = File(dir, "$id.label.jpg")
     fun photoOriginalFile(id: String) = File(dir, "$id.orig.jpg")
+    fun voiceFile(id: String) = File(dir, "$id.voice.f32")
+
+    suspend fun saveVoice(id: String, voice: FloatArray) = withContext(Dispatchers.IO) {
+        val b = ByteBuffer.allocate(voice.size * 4).order(ByteOrder.LITTLE_ENDIAN); b.asFloatBuffer().put(voice)
+        voiceFile(id).writeBytes(b.array())
+    }
+
+    suspend fun loadVoice(id: String): FloatArray? = withContext(Dispatchers.IO) {
+        val f = voiceFile(id); if (!f.exists()) return@withContext null
+        val fb = ByteBuffer.wrap(f.readBytes()).order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer()
+        FloatArray(fb.remaining()).also { fb.get(it) }
+    }
 
     private fun persist(list: List<RecordMeta>) {
         _records.value = list
@@ -58,7 +83,7 @@ object RecordStore {
     }
 
     suspend fun delete(id: String) = withContext(Dispatchers.IO) {
-        listOf(masterFile(id), photoFile(id), photoOriginalFile(id)).forEach { it.delete() }
+        listOf(masterFile(id), photoFile(id), photoOriginalFile(id), voiceFile(id)).forEach { it.delete() }
         persist(_records.value.filterNot { it.id == id })
     }
 }

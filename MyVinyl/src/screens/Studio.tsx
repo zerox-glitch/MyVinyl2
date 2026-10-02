@@ -3,14 +3,15 @@ import { Btn, Eyebrow, Meter, Wave, fmt } from '../components/ui'
 import { CRACKLES, MOODS, OCCASIONS, PRESETS, STYLES } from '../lib/presets'
 import { MUSIC, musicBed } from '../lib/music'
 import { SR, decodeToMono, demoSources, demoVoice, encodeWav, renderMaster, waveform } from '../lib/dsp'
-import { db, type StoredRecord } from '../lib/db'
+import { db, type StoredRecord, type StudioSettings } from '../lib/db'
 import Turntable from '../components/Turntable'
 import { ProBadge, ProButton } from '../components/Paywall'
 import { FREE, PRO_SECONDS, isFree, openPaywall, usePro, type Gate } from '../lib/pro'
 
 const STEPS = ['Capture', 'Dedication', 'Character', 'Appearance', 'Press']
 
-export default function Studio({ onDone, recordCount }: { onDone: (r: StoredRecord) => void; recordCount: number }) {
+/** `edit`: an existing record opened from the player — the Studio reloads its voice + settings and re-presses it in place. */
+export default function Studio({ onDone, recordCount, edit, onCancelEdit }: { onDone: (r: StoredRecord) => void; recordCount: number; edit?: StoredRecord | null; onCancelEdit?: () => void }) {
   const pro = usePro().pro
   const locked = (kind: Gate, id: string) => !pro && !isFree(kind, id)
   const gate = (kind: Gate, id: string, name: string, fn: () => void) => (locked(kind, id) ? openPaywall(`${name} is part of Vynyl Pro. Unlock it — and every other sound — below.`) : fn())
@@ -38,12 +39,26 @@ export default function Studio({ onDone, recordCount }: { onDone: (r: StoredReco
     setMood(id); setPreset(m.presetId); setCrackle(m.crackleId); setMusic(m.musicId); setMusicLevel(m.musicLevel); navigator.vibrate?.(8)
   }
   const [render, setRender] = useState<{ p: number; stage: string } | null>(null)
+  useEffect(() => {
+    if (!edit?.voice) return
+    let live = true
+    void edit.voice.arrayBuffer().then((b) => {
+      if (!live) return
+      const st = edit.settings
+      setSource(new Float32Array(b))
+      setMeta({ title: edit.title, recipient: edit.recipient, sender: edit.sender, dedication: edit.dedication, occasion: edit.occasion, date: edit.date, sideA: edit.sideA, sideB: edit.sideB })
+      if (st) { setPreset(st.presetId); setStyle(st.styleId); setCrackle(st.crackleId); setMusic(st.music); setMusicLevel(st.musicLevel); setCrackleLevel(st.crackleLevel); setCharacter(st.character); setVolume(st.volume); setMood(st.moodId) }
+      setStep(2)
+    })
+    return () => { live = false }
+  }, [edit])
   const style = STYLES.find((s) => s.id === styleId)!
 
   return (
     <div className="flex h-full flex-col">
       <header className="px-6 pt-4">
         <div className="flex items-center justify-between gap-3"><Eyebrow>Studio · {STEPS[step]}</Eyebrow><ProButton /></div>
+        {edit && <div className="mt-3 flex items-center gap-2 rounded-full border border-amber/40 bg-amber/10 py-1 pl-3 pr-1 text-[11px] text-cream/85"><span className="min-w-0 flex-1 truncate">Re-pressing “{edit.title}”</span><button type="button" onClick={() => { setStep(0); setSource(null); onCancelEdit?.() }} disabled={!!render} className="min-h-8 rounded-full px-3 text-muted hover:text-cream">Cancel</button></div>}
         <div className="mt-3 flex gap-1.5" role="progressbar" aria-valuenow={step + 1} aria-valuemax={5}>
           {STEPS.map((s, i) => <span key={s} className={`h-0.5 flex-1 rounded-full ${i <= step ? 'bg-amber' : 'bg-cream/10'}`} />)}
         </div>
@@ -196,15 +211,16 @@ export default function Studio({ onDone, recordCount }: { onDone: (r: StoredReco
           <Btn onClick={() => setStep((s) => s + 1)} disabled={step === 0 && !source}>Continue</Btn>
         ) : (
           <Btn disabled={!!render || !source} onClick={async () => {
-            if (!pro && recordCount >= FREE.maxRecords) return openPaywall(`Your free shelf holds ${FREE.maxRecords} records and it’s full. Go Pro for unlimited records.`)
+            if (!edit && !pro && recordCount >= FREE.maxRecords) return openPaywall(`Your free shelf holds ${FREE.maxRecords} records and it’s full. Go Pro for unlimited records.`)
             if (locked('preset', presetId) || locked('crackle', crackleId) || locked('music', music) || locked('style', styleId)) return openPaywall('This record uses Pro sounds or wax. Go Pro to press it, or pick free options.')
-            const id = crypto.randomUUID(), preset = PRESETS.find((p) => p.id === presetId)!
+            const id = edit?.id ?? crypto.randomUUID(), preset = PRESETS.find((p) => p.id === presetId)!
             preview.stop(); setRender({ p: 0, stage: 'Preparing source' })
             const [l, r] = await renderMaster(source!, { preset, crackle: CRACKLES.find((c) => c.id === crackleId), seed: id, music: musicBed(music), musicLevel, crackleLevel, character, volume, onProgress: (p, stage) => setRender({ p: p * 0.9, stage }) })
             setRender({ p: 0.94, stage: 'Encoding' }); await new Promise((r) => setTimeout(r, 30))
             const master = encodeWav(l, r)
             setRender({ p: 0.98, stage: 'Generating waveform' })
-            const rec: StoredRecord = { id, ...meta, presetId, crackleId, musicId: music, styleId, duration: l.length / SR, wave: waveform(l), createdAt: Date.now(), favorite: false, master }
+            const settings: StudioSettings = { presetId, styleId, crackleId, music, musicLevel, crackleLevel, character, volume, moodId }
+            const rec: StoredRecord = { ...edit, id, ...meta, presetId, crackleId, musicId: music, styleId, duration: l.length / SR, wave: waveform(l), createdAt: edit?.createdAt ?? Date.now(), favorite: edit?.favorite ?? false, master, voice: new Blob([source!.slice().buffer]), settings }
             await db.put(rec); navigator.vibrate?.([10, 40, 20])
             setRender(null); setStep(0); setSource(null); onDone(rec)
           }}>Press record</Btn>

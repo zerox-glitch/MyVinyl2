@@ -5,7 +5,9 @@ export type RecordMeta = {
   createdAt: number; lastPlayedAt?: number; favorite: boolean
 }
 export type PhotoAdjust = { mode: 'fill' | 'fit'; zoom: number; x: number; y: number; rot: number; bg: 'blur' | 'label' }
-export type StoredRecord = RecordMeta & { master: Blob; labelPhoto?: Blob; labelPhotoOriginal?: Blob; labelPhotoAdjust?: PhotoAdjust; crackleId?: string; musicId?: string }
+/** Everything the Studio needs to re-press a record from its original voice. */
+export type StudioSettings = { presetId: string; styleId: string; crackleId: string; music: string; musicLevel: number; crackleLevel: number; character: number; volume: number; moodId: string | null }
+export type StoredRecord = RecordMeta & { master: Blob; voice?: Blob; settings?: StudioSettings; reedits?: number; labelPhoto?: Blob; labelPhotoOriginal?: Blob; labelPhotoAdjust?: PhotoAdjust; crackleId?: string; musicId?: string }
 
 const open = () =>
   new Promise<IDBDatabase>((res, rej) => {

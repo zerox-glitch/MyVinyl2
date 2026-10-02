@@ -4,13 +4,13 @@ import PhotoAdjust, { DEFAULT_ADJUST, drawAdjusted } from '../components/PhotoAd
 import { ProBadge } from '../components/Paywall'
 import VideoExport from '../components/VideoExport'
 import NameplatePreview from '../components/NameplatePreview'
-import { FREE_VIDEO_SECONDS, isFree, openPaywall, usePro, watermarkWav } from '../lib/pro'
+import { FREE, FREE_VIDEO_SECONDS, isFree, openPaywall, usePro, watermarkWav } from '../lib/pro'
 import { Wave, fmt } from '../components/ui'
 import { playNeedleDrop } from '../lib/dsp'
 import { PRESETS, STYLES } from '../lib/presets'
 import { db, type PhotoAdjust as Adjust, type StoredRecord } from '../lib/db'
 
-export default function Player({ record, onClose }: { record: StoredRecord; onClose: () => void }) {
+export default function Player({ record, onClose, onEdit }: { record: StoredRecord; onClose: () => void; onEdit: (r: StoredRecord) => void }) {
   const audio = useRef<HTMLAudioElement>(null)
   const [url, setUrl] = useState<string>()
   useEffect(() => {
@@ -22,6 +22,15 @@ export default function Player({ record, onClose }: { record: StoredRecord; onCl
   const [exporting, setExporting] = useState(false)
   const [video, setVideo] = useState(false)
   const [platePreview, setPlatePreview] = useState(false)
+  // back to the Studio to change music, crackle, mood… free users get FREE.reedits trips per record
+  const editsLeft = pro ? Infinity : Math.max(0, FREE.reedits - (record.reedits ?? 0))
+  const backToStudio = async () => {
+    if (!record.voice) return
+    if (editsLeft <= 0) return openPaywall('Free records can go back to the Studio once. Go Pro to re-tune the music, crackle and mood as often as you like.')
+    const next = pro ? record : { ...record, reedits: (record.reedits ?? 0) + 1 }
+    if (!pro) await db.put(next)
+    audio.current?.pause(); onEdit(next)
+  }
   const [engaged, setEngaged] = useState(false)
   const [contact, setContact] = useState(false)
   const [t, setT] = useState(0)
@@ -137,6 +146,12 @@ export default function Player({ record, onClose }: { record: StoredRecord; onCl
           <p className="text-sm text-muted">for {record.recipient} · from {record.sender}</p>
           {!pro && <button type="button" onClick={() => setPlatePreview(true)} className="mt-2 inline-flex items-center gap-2 rounded-full border border-amber/40 bg-amber/10 py-1 pl-1.5 pr-3 text-[11px] text-cream/85 transition hover:border-amber-bright"><ProBadge />Gold nameplate on the plinth</button>}
 
+          {record.voice ? (
+            <button type="button" onClick={() => void backToStudio()} className="mt-2 ml-2 inline-flex items-center gap-1.5 rounded-full border border-brass/35 py-1 pl-2.5 pr-3 text-[11px] text-cream/85 transition hover:border-amber-bright active:scale-95">
+              <svg viewBox="0 0 16 16" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden><path d="M6 3 2.5 6.5 6 10M3 6.5h6.5a4 4 0 0 1 0 8H7" /></svg>
+              Back to Studio{!pro && (editsLeft > 0 ? <span className="text-muted"> · {editsLeft} free</span> : <ProBadge className="ml-1" />)}
+            </button>
+          ) : <p className="mt-2 text-[11px] text-muted">Pressed before re-editing existed — record it again to change its sound.</p>}
           <div className="mt-4 h-10 cursor-pointer" onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); seek(((e.clientX - r.left) / r.width) * dur) }}>
             <Wave data={record.wave} progress={progress} className="h-full" />
           </div>

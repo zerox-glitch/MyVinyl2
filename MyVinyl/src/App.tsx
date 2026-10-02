@@ -5,13 +5,16 @@ import Player from './screens/Player'
 import Paywall from './components/Paywall'
 import Splash from './components/Splash'
 import Onboarding from './components/Onboarding'
+import Guide from './components/Guide'
 import Logo from './components/Logo'
 import { db, type StoredRecord } from './lib/db'
 
 export default function App() {
   const [tab, setTab] = useState<'studio' | 'vault'>('studio')
+  const [guide, setGuide] = useState(false)
   const [records, setRecords] = useState<StoredRecord[]>([])
   const [playing, setPlaying] = useState<StoredRecord | null>(null)
+  const [editing, setEditing] = useState<StoredRecord | null>(null)
   const refresh = useCallback(() => { db.all().then(setRecords) }, [])
   useEffect(refresh, [refresh])
 
@@ -34,8 +37,9 @@ export default function App() {
             <span className="flex items-center gap-1.5"><span>▾</span><span>▴▴</span><span className="inline-block h-2.5 w-5 rounded-[2px] border border-cream/70 p-px"><span className="block h-full w-4/5 bg-cream/70" /></span></span>
           </div>
           <main className="relative min-h-0 flex-1">
-            {tab === 'studio' ? <Studio recordCount={records.length} onDone={(r) => { refresh(); setTab('vault'); setPlaying(r) }} /> : <Vault records={records} refresh={refresh} onPlay={setPlaying} onNew={() => setTab('studio')} />}
-            {playing && <Player record={playing} onClose={() => { setPlaying(null); refresh() }} />}
+            {tab === 'studio' ? <Studio recordCount={records.length} edit={editing} onCancelEdit={() => setEditing(null)} onDone={(r) => { refresh(); setEditing(null); setTab('vault'); setPlaying(r) }} /> : <Vault records={records} refresh={refresh} onPlay={setPlaying} onNew={() => setTab('studio')} />}
+            {playing && <Player record={playing} onClose={() => { setPlaying(null); refresh() }} onEdit={(r) => { setPlaying(null); setEditing(r); setTab('studio'); refresh() }} />}
+            {guide && <Guide onClose={() => setGuide(false)} />}
             <Paywall />
           </main>
           <nav className="flex min-h-[68px] shrink-0 items-start justify-around border-t border-brass/20 bg-stone pt-2 pb-[max(8px,env(safe-area-inset-bottom))]" aria-label="Main">
@@ -44,6 +48,9 @@ export default function App() {
                 <span className="text-lg leading-none">{glyph}</span>{label}
               </button>
             ))}
+            <button type="button" onClick={() => setGuide(true)} aria-pressed={guide} className={`flex min-h-12 min-w-24 touch-manipulation flex-col items-center gap-0.5 text-[11px] ${guide ? 'text-amber-bright' : 'text-muted'}`}>
+              <span className="grid h-[18px] w-[18px] place-items-center rounded-full border-[1.5px] border-current text-[11px] font-bold leading-none">?</span>Guide
+            </button>
           </nav>
           <Onboarding />
           <Splash />

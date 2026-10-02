@@ -18,6 +18,7 @@ const SAW = table(Array.from({ length: 14 }, (_, k) => 1 / (k + 1)))
 const REED = table([1, 0.08, 0.55, 0.06, 0.38, 0.05, 0.25, 0.04, 0.16, 0.03, 0.1])
 const ORGAN = table([1, 0.9, 0.3, 0.55, 0, 0.2, 0, 0.3])
 const WARM = table([1, 0.35, 0.12, 0.05])
+const WHISTLE = table([1, 0.12, 0.05, 0.02])
 
 type Env = { a: number; d?: number; r?: number }
 /** Wavetable voice with optional detuned unison (chorus) and vibrato. */
@@ -346,61 +347,72 @@ function blues() {
   return finish(out, 0.35, 0.22, 0.24)
 }
 
-/** Celtic Morning — a tin whistle over harp and a soft drone, in lilting six-eight. */
+/** Celtic Morning — a D-major jig in six-eight: tin whistle, harp arpeggios, a pipe drone and a soft bodhrán. */
 function celtic() {
-  const e = 0.25, out = new Float32Array(Math.floor(SR * e * 48))
-  const prog = [[50, 57, 62, 66], [48, 55, 60, 64], [45, 52, 57, 61], [50, 57, 62, 66]]
-  prog.forEach((ch, bar) => {
-    const t0 = bar * 12 * e
-    tone(out, t0, 12 * e, midi(ch[0] - 12), 0.08, REED, { a: 0.3, r: 0.3 }, { bright: 0.05 })
-    ;[0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 2, 1].forEach((k, i) => pluck(out, t0 + i * e, midi(ch[k] + 12), 0.2, 0.998, 0.35, bar * 12 + i))
+  const e = 0.2, out = new Float32Array(Math.floor(SR * e * 48))
+  const D = [50, 57, 62, 66], G = [43, 55, 59, 62], A = [45, 52, 57, 61]
+  ;[38, 45].forEach((n) => tone(out, 0, 48 * e, midi(n), 0.035, REED, { a: 0.6, r: 0.6 }, { bright: 0.04 }))
+  ;[D, D, G, D, D, G, A, D].forEach((ch, bar) => {
+    const t0 = bar * 6 * e
+    ;[0, 1, 2, 3, 2, 1].forEach((k, i) => pluck(out, t0 + i * e, midi(ch[k]), i ? 0.11 : 0.15, 0.997, 0.4, bar * 6 + i))
+    kick(out, t0, 0.16, 120, 70, 0.25); kick(out, t0 + 3 * e, 0.09, 120, 70, 0.2)
+    brush(out, t0 + 5 * e, 0.025, bar * 5 + 3, 0.05)
   })
-  ;[[74, 3], [76, 1], [78, 2], [81, 3], [78, 3], [76, 2], [74, 1], [73, 3], [74, 6], [69, 3], [71, 3], [74, 6], [74, 12]].reduce((t, [n, d]) => {
-    tone(out, t * e, d * e * 0.92, midi(n), 0.1, WARM, { a: 0.03, r: 0.1 }, { vib: 5.5, vibDepth: 0.006, bright: 0.5 }); return t + d
+  ;[[78, 2], [76, 1], [74, 2], [76, 1], [78, 1], [81, 1], [78, 1], [76, 2], [74, 1], [79, 2], [78, 1], [76, 2], [74, 1], [78, 3], [74, 3],
+    [78, 2], [76, 1], [74, 2], [76, 1], [79, 1], [83, 1], [81, 1], [79, 2], [78, 1], [76, 2], [74, 1], [73, 2], [76, 1], [74, 6]].reduce((t, [n, d]) => {
+    tone(out, t * e, d * e * 0.88, midi(n), 0.08, WHISTLE, { a: 0.015, r: 0.06 }, { vib: 5.5, vibDepth: 0.004, bright: 0.6 }); return t + d
   }, 0)
-  return finish(out, 0.55, 0.32, 0.24)
+  return finish(out, 0.5, 0.3, 0.24)
 }
 
-/** Cinematic Dawn — swelling strings, distant timpani and a glassy bell. */
+/** Cinematic Dawn — Dm–B♭–F–C: string swells, a low cello line, a rising horn motif, a bell and a timpani roll. */
 function cinematic() {
-  const out = new Float32Array(SR * 16), prog = [[38, 50, 57, 62, 65], [34, 46, 53, 58, 62], [41, 53, 57, 60, 65], [36, 48, 55, 60, 64]]
+  const out = new Float32Array(SR * 16)
+  const prog = [[57, 62, 65, 69], [58, 62, 65, 70], [57, 60, 65, 69], [55, 60, 64, 67]], roots = [38, 34, 41, 36]
   prog.forEach((ch, bar) => {
     const t0 = bar * 4
-    ch.forEach((n, k) => tone(out, t0, 4.1, midi(n), k ? 0.08 : 0.12, SAW, { a: 1.6, r: 1 }, { unison: 3, detune: 0.005, vib: 4.8, vibDepth: 0.0025, bright: 0.1 }))
-    kick(out, t0, 0.35, 90, 55, 1.2); kick(out, t0 + 3.5, 0.18, 90, 55, 0.8)
-    fm(out, t0 + 1, 3, midi(ch[3] + 12), 0.06, 3.5, 1.2, 0.9)
+    ch.forEach((n) => tone(out, t0, 4.1, midi(n), 0.055, SAW, { a: 1.4, r: 1.2 }, { unison: 3, detune: 0.004, vib: 4.8, vibDepth: 0.002, bright: 0.06 }))
+    tone(out, t0, 4.1, midi(roots[bar]), 0.12, WARM, { a: 0.8, r: 1 }, { unison: 2, detune: 0.003, bright: 0.2 })
+    if (bar % 2 === 0) kick(out, t0, 0.3, 75, 60, 1.4)
+    fm(out, t0 + 2, 3, midi(ch[3] + 12), 0.03, 2, 0.8, 1.2)
   })
-  return finish(out, 0.9, 0.5, 0.24)
+  for (let i = 0; i < 8; i++) kick(out, 15 + i * 0.12, 0.04 + i * 0.015, 75, 60, 0.6)
+  ;[[62, 2], [65, 1], [69, 1], [70, 3], [65, 1], [69, 2], [72, 2], [74, 2], [72, 2]].reduce((t, [n, d]) => {
+    tone(out, t, d * 0.95, midi(n), 0.075, SAW, { a: 0.25, r: 0.5 }, { vib: 4.5, vibDepth: 0.003, bright: 0.04 }); return t + d
+  }, 0)
+  return finish(out, 0.85, 0.45, 0.24)
 }
 
-/** Sunday Soul — a 60s slow groove: organ, chicken-pick guitar, round bass, kick and snare. */
+/** Sunday Soul — a 12/8 gospel ballad: Leslie organ, triplet electric piano, round bass, backbeat and ride. */
 function soul() {
-  const beat = 60 / 74, out = new Float32Array(Math.floor(SR * beat * 16))
-  const chords = [[60, 64, 67], [57, 60, 64], [62, 65, 69], [55, 59, 62, 65]], roots = [36, 33, 38, 31]
+  const beat = 60 / 64, trip = beat / 3, out = new Float32Array(Math.floor(SR * beat * 16))
+  const chords = [[52, 55, 59, 64], [55, 60, 64, 67], [53, 57, 60, 65], [53, 57, 59, 65]], roots = [36, 33, 38, 31]
   chords.forEach((ch, bar) => {
     const t0 = bar * 4 * beat
-    kick(out, t0, 0.5); kick(out, t0 + 2.75 * beat, 0.35)
-    for (const b of [1, 3]) brush(out, t0 + b * beat, 0.11, bar * 9 + b, 0.18)
-    ;[0, 0, 7, 12].forEach((iv, b) => pluck(out, t0 + [0, 1.5, 2, 3][b] * beat, midi(roots[bar] + iv), 0.55, 0.993, 0.5, bar * 4 + b))
-    ch.forEach((n) => tone(out, t0, 4 * beat, midi(n), 0.05, ORGAN, { a: 0.15, r: 0.3 }, { vib: 6.2, vibDepth: 0.0025 }))
-    for (const b of [1, 3]) ch.forEach((n, k) => pluck(out, t0 + b * beat + k * 0.012, midi(n + 12), 0.12, 0.98, 0.8, bar * 30 + b * 4 + k))
+    ch.forEach((n) => tone(out, t0, 4 * beat, midi(n), 0.035, ORGAN, { a: 0.2, r: 0.3 }, { vib: 6.5, vibDepth: 0.003 }))
+    for (let i = 0; i < 12; i++) ch.slice(1).forEach((n) => fm(out, t0 + i * trip, 0.6, midi(n), i % 3 ? 0.018 : 0.03, 1, 1, 3))
+    ;[[0, 0], [5 / 3, 0], [2, 7], [3, 12], [11 / 3, 7]].forEach(([b, iv], k) => pluck(out, t0 + b * beat, midi(roots[bar] + iv), 0.5, 0.995, 0.3, bar * 5 + k))
+    kick(out, t0, 0.45); kick(out, t0 + (8 / 3) * beat, 0.3)
+    for (const b of [1, 3]) { brush(out, t0 + b * beat, 0.09, bar * 9 + b, 0.16); kick(out, t0 + b * beat, 0.1, 200, 160, 0.12) }
+    for (let i = 0; i < 12; i++) brush(out, t0 + i * trip, i % 3 ? 0.01 : 0.018, bar * 40 + i, 0.03)
   })
-  return finish(out, 0.4, 0.25, 0.24)
+  return finish(out, 0.45, 0.28, 0.24)
 }
 
-/** Porch Country — a banjo roll, boom-chick bass and a lazy fiddle. */
+/** Porch Country — G–C–D–G: alternating bass, a guitar "chick" with brushes, a banjo roll and a fiddle tune. */
 function country() {
   const beat = 60 / 104, out = new Float32Array(Math.floor(SR * beat * 16))
-  const chords = [[55, 59, 62, 67], [60, 64, 67, 72], [62, 66, 69, 74], [55, 59, 62, 67]], roots = [43, 48, 50, 43]
+  const chords = [[55, 59, 62, 67], [55, 60, 64, 67], [57, 62, 66, 69], [55, 59, 62, 67]], roots = [43, 48, 50, 43]
   chords.forEach((ch, bar) => {
-    const t0 = bar * 4 * beat
-    ;[0, 7, 0, 7].forEach((iv, b) => pluck(out, t0 + b * beat, midi(roots[bar] + iv - 12), 0.5, 0.993, 0.5, bar * 4 + b))
-    ;[3, 1, 0, 3, 1, 0, 3, 2].forEach((k, i) => pluck(out, t0 + i * beat * 0.5, midi(ch[k]), 0.16, 0.985, 0.75, bar * 16 + i))
+    const t0 = bar * 4 * beat, r = roots[bar]
+    pluck(out, t0, midi(r), 0.5, 0.994, 0.35, bar * 4); pluck(out, t0 + 2 * beat, midi(r - 5), 0.45, 0.994, 0.35, bar * 4 + 1)
+    for (const b of [1, 3]) { ch.forEach((n, k) => pluck(out, t0 + b * beat + k * 0.01, midi(n), 0.07, 0.97, 0.7, bar * 20 + b * 4 + k)); brush(out, t0 + b * beat, 0.06, bar * 7 + b, 0.1) }
+    ;[0, 1, 3, 0, 1, 3, 0, 2].forEach((k, i) => pluck(out, t0 + i * beat * 0.5, midi(ch[k] + 12), 0.09, 0.975, 0.85, bar * 16 + i + 100))
   })
-  ;[[71, 2], [74, 2], [76, 3], [74, 1], [71, 2], [69, 2], [67, 4]].reduce((t, [n, d]) => {
-    tone(out, t * beat, d * beat * 0.95, midi(n), 0.09, SAW, { a: 0.12, r: 0.2 }, { vib: 5.6, vibDepth: 0.006, bright: 0.15 }); return t + d
+  ;[[71, 1], [74, 1], [76, 1], [74, 1], [76, 2], [79, 1], [76, 1], [74, 1.5], [72, 0.5], [69, 1], [66, 1], [67, 4]].reduce((t, [n, d]) => {
+    tone(out, t * beat, d * beat * 0.92, midi(n), 0.07, SAW, { a: 0.06, r: 0.15 }, { vib: 5.6, vibDepth: 0.005, bright: 0.12 }); return t + d
   }, 0)
-  return finish(out, 0.3, 0.2, 0.24)
+  return finish(out, 0.28, 0.18, 0.24)
 }
 
 export type MusicBed = { id: string; name: string; blurb: string; romantic?: boolean; make: () => Float32Array | null }
@@ -425,8 +437,8 @@ export const MUSIC: MusicBed[] = [
   { id: 'lofi', name: 'Lo-Fi Bedroom', blurb: 'Dusty Rhodes chords over a lazy beat.', make: lofi },
   { id: 'blues', name: 'Blues Shuffle', blurb: 'Boogie bass, organ stabs and a wailing reed.', make: blues },
   { id: 'celtic', name: 'Celtic Morning', blurb: 'Tin whistle and harp in a lilting six-eight.', make: celtic },
-  { id: 'cinematic', name: 'Cinematic Dawn', blurb: 'Swelling strings, timpani and a glassy bell.', make: cinematic },
-  { id: 'soul', name: 'Sunday Soul', blurb: 'A 60s slow groove: organ, guitar and drums.', make: soul },
+  { id: 'cinematic', name: 'Cinematic Dawn', blurb: 'Rising horns over swelling strings and timpani.', make: cinematic },
+  { id: 'soul', name: 'Sunday Soul', blurb: 'A 12/8 gospel ballad: organ, keys and backbeat.', make: soul },
   { id: 'country', name: 'Porch Country', blurb: 'A banjo roll, boom-chick bass and a lazy fiddle.', make: country },
 ]
 
