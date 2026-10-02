@@ -38,11 +38,11 @@ class Biquad {
   }
 }
 
-export type RenderOpts = { preset: Preset; crackle?: Crackle; seed: string; intro?: number; tail?: number; maxGain?: number; music?: Float32Array | null; musicLevel: number; crackleLevel?: number; character?: number; volume?: number; fixedGain?: number; needle?: boolean; onProgress?: (p: number, stage: string) => void }
+export type RenderOpts = { preset: Preset; crackle?: Crackle; seed: string; intro?: number; tail?: number; maxGain?: number; music?: Float32Array | null; musicLevel: number; crackleLevel?: number; character?: number; volume?: number; fixedGain?: number; onProgress?: (p: number, stage: string) => void }
 
 const tick = () => new Promise((r) => setTimeout(r, 0))
 
-/** Stylus landing in the lead-in groove: a bright contact click, a low tonearm thump with a falling pitch, then a short scuff of run-in noise. Added on every master, unfaded. */
+/** Stylus landing in the lead-in groove: a bright contact click, a low tonearm thump with a falling pitch, then a short scuff of run-in noise. */
 function needleDrop(L: Float32Array, R: Float32Array, at: number, rnd: () => number) {
   const len = Math.min(L.length - at, Math.floor(SR * 0.35)), hp = Biquad.make('hp', 1800, 0.7), lp = Biquad.make('lp', 5200)
   let ph = 0
@@ -55,6 +55,23 @@ function needleDrop(L: Float32Array, R: Float32Array, at: number, rnd: () => num
     L[at + j] += click + thump + scuff
     R[at + j] += click * 0.9 + thump + scuff * 0.92
   }
+}
+
+/** The needle-drop as a standalone stereo clip, played live by the player the moment the stylus touches the record. */
+export function needleDropClip(): [Float32Array<ArrayBuffer>, Float32Array<ArrayBuffer>] {
+  const n = Math.floor(SR * 0.35), L = new Float32Array(n), R = new Float32Array(n)
+  needleDrop(L, R, 0, rng('needle-drop'))
+  return [L, R]
+}
+
+let dropCtx: AudioContext | null = null, dropBuf: AudioBuffer | null = null
+/** Fire-and-forget playback of the needle-drop clip. */
+export function playNeedleDrop(volume = 1) {
+  dropCtx ??= new AudioContext()
+  if (!dropBuf) { const [l, r] = needleDropClip(); dropBuf = dropCtx.createBuffer(2, l.length, SR); dropBuf.copyToChannel(l, 0); dropBuf.copyToChannel(r, 1) }
+  void dropCtx.resume()
+  const src = dropCtx.createBufferSource(), g = dropCtx.createGain(); g.gain.value = volume
+  src.buffer = dropBuf; src.connect(g); g.connect(dropCtx.destination); src.start()
 }
 
 /** Full vinyl pipeline on mono 44.1k voice → stereo master. Processes in blocks and yields to keep UI alive. */
@@ -131,7 +148,6 @@ export async function renderMaster(voice: Float32Array, o: RenderOpts): Promise<
     o.onProgress?.(s / n, s / n < 0.3 ? 'Mixing atmosphere' : s / n < 0.8 ? 'Adding vinyl character' : 'Mastering')
     await tick()
   }
-  if (o.needle ?? true) needleDrop(L, Rt, Math.floor(SR * 0.12), rng(o.seed + ':drop'))
   // limiter: normalize to -1 dBFS then soft ceiling
   let peak = 1e-6
   for (let i = 0; i < n; i++) peak = Math.max(peak, Math.abs(L[i]), Math.abs(Rt[i]))

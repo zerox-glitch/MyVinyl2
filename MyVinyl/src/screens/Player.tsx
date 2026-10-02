@@ -6,6 +6,7 @@ import VideoExport from '../components/VideoExport'
 import NameplatePreview from '../components/NameplatePreview'
 import { FREE_VIDEO_SECONDS, isFree, openPaywall, usePro, watermarkWav } from '../lib/pro'
 import { Wave, fmt } from '../components/ui'
+import { playNeedleDrop } from '../lib/dsp'
 import { PRESETS, STYLES } from '../lib/presets'
 import { db, type PhotoAdjust as Adjust, type StoredRecord } from '../lib/db'
 
@@ -46,6 +47,12 @@ export default function Player({ record, onClose }: { record: StoredRecord; onCl
   const preset = PRESETS.find((p) => p.id === record.presetId)!
   const dur = record.duration, progress = dur ? t / dur : 0
 
+  // the stylus touching down: play the needle-drop thump on every landing
+  const landed = useRef(false)
+  useEffect(() => {
+    if (engaged && contact && !landed.current) playNeedleDrop()
+    landed.current = engaged && contact
+  }, [engaged, contact])
   // audio starts only at needle contact
   useEffect(() => {
     const a = audio.current!

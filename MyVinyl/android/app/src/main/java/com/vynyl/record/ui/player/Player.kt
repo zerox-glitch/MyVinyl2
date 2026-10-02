@@ -1,5 +1,6 @@
 package com.vynyl.record.ui.player
 
+import com.vynyl.record.audio.NeedleDrop
 import com.vynyl.record.ui.components.NameplatePreview
 import android.app.Activity
 import android.content.Context
@@ -214,6 +215,12 @@ fun Player(record: RecordMeta, onClose: () -> Unit) {
     val t = if (ended) dur else min(position, dur)
     val progress = if (dur > 0f) t / dur else 0f
 
+    // the stylus touching down: play the needle-drop thump on every landing
+    var landed by remember { mutableStateOf(false) }
+    LaunchedEffect(engaged, contact) {
+        if (engaged && contact && !landed) NeedleDrop.play()
+        landed = engaged && contact
+    }
     // audio starts only at needle contact
     LaunchedEffect(engaged, contact) {
         if (engaged && contact) runCatching { player.play() }.onFailure { engaged = false } else player.pause()
