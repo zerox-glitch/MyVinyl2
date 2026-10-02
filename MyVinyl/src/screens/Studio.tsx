@@ -422,7 +422,7 @@ function usePreview(source: Float32Array | null) {
     const silent = new Float32Array(clip.length), bed = musicBed(o.music)
     const base = { preset: PRESETS.find((p) => p.id === o.presetId)!, crackle: CRACKLES.find((c) => c.id === o.crackleId), seed: 'preview:' + key, intro: 0.6, tail: 0.6, fixedGain: 1 }
     const stem = (src: Float32Array, character: number, music: boolean, crackle: boolean) =>
-      renderMaster(src, { ...base, character, music: music ? bed : null, musicLevel: music ? 1 : 0, crackleLevel: crackle ? 1 : 0 })
+      renderMaster(src, { ...base, character, music: music ? bed : null, musicLevel: music ? 1 : 0, crackleLevel: crackle ? 1 : 0, needle: crackle })
     const v0 = voice ? await stem(clip, 0, false, false) : null
     const v1 = voice ? await stem(clip, 1.5, false, false) : null
     const m0 = bed ? await stem(silent, 0, true, false) : null

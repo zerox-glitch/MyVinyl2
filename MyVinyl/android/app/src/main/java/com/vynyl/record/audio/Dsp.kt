@@ -46,6 +46,8 @@ data class RenderOpts(
     val character: Float = 1f,
     val volume: Float = 1f,
     val fixedGain: Float? = null,
+    /** add the stylus-landing sound at the start (off for preview stems that would double it) */
+    val needle: Boolean = true,
 )
 
 /** JS ToInt32 of an integer-valued double (exact: fmod is exact in IEEE 754). */
@@ -103,6 +105,22 @@ private class Biquad(
 }
 
 private class Ev(var t: Int, val amp: Double, val len: Double, val pan: Double, val pop: Boolean)
+
+/** Stylus landing in the lead-in groove: a bright contact click, a low tonearm thump with a falling pitch, then a short scuff of run-in noise. Added on every master, unfaded. */
+private fun needleDrop(L: FloatArray, R: FloatArray, at: Int, rnd: () -> Double) {
+    val len = min(L.size - at, floor(SR * 0.35).toInt())
+    val hp = Biquad.make('h', 1800.0, 0.7); val lp = Biquad.make('l', 5200.0)
+    var ph = 0.0
+    for (j in 0 until len) {
+        val t = j.toDouble() / SR
+        val click = (if (j < 2) 0.55 else 0.0) + hp.run(rnd() * 2 - 1) * 0.4 * exp(-t / 0.004)
+        ph += (2 * PI * (44 + 30 * exp(-t / 0.03))) / SR
+        val thump = sin(ph) * 0.42 * exp(-t / 0.05) * min(1.0, j / 40.0)
+        val scuff = lp.run(rnd() * 2 - 1) * 0.07 * exp(-t / 0.11)
+        L[at + j] += (click + thump + scuff).toFloat()
+        R[at + j] += (click * 0.9 + thump + scuff * 0.92).toFloat()
+    }
+}
 
 /** Full vinyl pipeline on mono 44.1k voice → stereo master. Processes in blocks and yields to keep UI alive. */
 suspend fun renderMaster(voice: FloatArray, o: RenderOpts, onProgress: (Float, String) -> Unit = { _, _ -> }): Stereo =
@@ -260,6 +278,7 @@ suspend fun renderMaster(voice: FloatArray, o: RenderOpts, onProgress: (Float, S
             s += block
         }
         // limiter: normalize to -1 dBFS then soft ceiling
+        if (o.needle) needleDrop(L, Rt, floor(SR * 0.12).toInt(), rng(o.seed + ":drop"))
         var peak = 1e-6
         for (i in 0 until n) peak = max(peak, max(abs(L[i].toDouble()), abs(Rt[i].toDouble())))
         val g = o.fixedGain?.toDouble()

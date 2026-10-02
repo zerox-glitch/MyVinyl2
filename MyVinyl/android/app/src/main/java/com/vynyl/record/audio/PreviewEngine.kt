@@ -72,7 +72,7 @@ class PreviewEngine {
                 val bed = musicBed(musicId)
                 val base = RenderOpts(preset = preset, crackle = crackle, seed = "preview:$key", intro = 0.6f, tail = 0.6f, fixedGain = 1f)
                 suspend fun stem(src: FloatArray, character: Float, music: Boolean, crk: Boolean) =
-                    renderMaster(src, base.copy(character = character, music = if (music) bed else null, musicLevel = if (music) 1f else 0f, crackleLevel = if (crk) 1f else 0f))
+                    renderMaster(src, base.copy(character = character, music = if (music) bed else null, musicLevel = if (music) 1f else 0f, crackleLevel = if (crk) 1f else 0f, needle = crk))
                 val v0 = if (real != null) stem(clip, 0f, false, false) else null
                 val v1 = if (real != null) stem(clip, 1.5f, false, false) else null
                 val m0 = if (bed != null) stem(silent, 0f, true, false) else null

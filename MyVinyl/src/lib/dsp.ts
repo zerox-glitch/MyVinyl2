@@ -38,9 +38,24 @@ class Biquad {
   }
 }
 
-export type RenderOpts = { preset: Preset; crackle?: Crackle; seed: string; intro?: number; tail?: number; maxGain?: number; music?: Float32Array | null; musicLevel: number; crackleLevel?: number; character?: number; volume?: number; fixedGain?: number; onProgress?: (p: number, stage: string) => void }
+export type RenderOpts = { preset: Preset; crackle?: Crackle; seed: string; intro?: number; tail?: number; maxGain?: number; music?: Float32Array | null; musicLevel: number; crackleLevel?: number; character?: number; volume?: number; fixedGain?: number; needle?: boolean; onProgress?: (p: number, stage: string) => void }
 
 const tick = () => new Promise((r) => setTimeout(r, 0))
+
+/** Stylus landing in the lead-in groove: a bright contact click, a low tonearm thump with a falling pitch, then a short scuff of run-in noise. Added on every master, unfaded. */
+function needleDrop(L: Float32Array, R: Float32Array, at: number, rnd: () => number) {
+  const len = Math.min(L.length - at, Math.floor(SR * 0.35)), hp = Biquad.make('hp', 1800, 0.7), lp = Biquad.make('lp', 5200)
+  let ph = 0
+  for (let j = 0; j < len; j++) {
+    const t = j / SR
+    const click = (j < 2 ? 0.55 : 0) + hp.run(rnd() * 2 - 1) * 0.4 * Math.exp(-t / 0.004)
+    ph += (2 * Math.PI * (44 + 30 * Math.exp(-t / 0.03))) / SR
+    const thump = Math.sin(ph) * 0.42 * Math.exp(-t / 0.05) * Math.min(1, j / 40)
+    const scuff = lp.run(rnd() * 2 - 1) * 0.07 * Math.exp(-t / 0.11)
+    L[at + j] += click + thump + scuff
+    R[at + j] += click * 0.9 + thump + scuff * 0.92
+  }
+}
 
 /** Full vinyl pipeline on mono 44.1k voice → stereo master. Processes in blocks and yields to keep UI alive. */
 export async function renderMaster(voice: Float32Array, o: RenderOpts): Promise<[Float32Array, Float32Array]> {
@@ -116,6 +131,7 @@ export async function renderMaster(voice: Float32Array, o: RenderOpts): Promise<
     o.onProgress?.(s / n, s / n < 0.3 ? 'Mixing atmosphere' : s / n < 0.8 ? 'Adding vinyl character' : 'Mastering')
     await tick()
   }
+  if (o.needle ?? true) needleDrop(L, Rt, Math.floor(SR * 0.12), rng(o.seed + ':drop'))
   // limiter: normalize to -1 dBFS then soft ceiling
   let peak = 1e-6
   for (let i = 0; i < n; i++) peak = Math.max(peak, Math.abs(L[i]), Math.abs(Rt[i]))
