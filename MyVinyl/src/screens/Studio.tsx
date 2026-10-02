@@ -12,11 +12,12 @@ const STEPS = ['Capture', 'Dedication', 'Character', 'Appearance', 'Press']
 
 /** `edit`: an existing record opened from the player — the Studio reloads its voice + settings and re-presses it in place. */
 /** `capture`: bumped by the Record tab to jump straight to the Capture step without losing anything else. */
-export default function Studio({ onDone, onPlay, recordCount, edit, onCancelEdit, capture = 0, active = true }: { onDone: (r: StoredRecord) => void; onPlay: (r: StoredRecord) => void; recordCount: number; edit?: StoredRecord | null; onCancelEdit?: () => void; capture?: number; active?: boolean }) {
+export default function Studio({ onDone, onPlay, recordCount, edit, onCancelEdit, capture = 0, active = true, onStep }: { onDone: (r: StoredRecord) => void; onPlay: (r: StoredRecord) => void; recordCount: number; edit?: StoredRecord | null; onCancelEdit?: () => void; capture?: number; active?: boolean; onStep?: (step: number) => void }) {
   const pro = usePro().pro
   const locked = (kind: Gate, id: string) => !pro && !isFree(kind, id)
   const gate = (kind: Gate, id: string, name: string, fn: () => void) => (locked(kind, id) ? openPaywall(`${name} is part of Vynyl Pro. Unlock it — and every other sound — below.`) : fn())
   const [step, setStep] = useState(0)
+  useEffect(() => { onStep?.(step) }, [step])
   /** the record this session last pressed — the Studio stays on it so you can go back and change things */
   const [pressed, setPressed] = useState<StoredRecord | null>(null)
   const base = pressed ?? edit ?? null

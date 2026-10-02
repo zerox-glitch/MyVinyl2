@@ -33,6 +33,7 @@ fun VynylApp() {
     var tab by rememberSaveable { mutableStateOf("studio") }
     var guide by rememberSaveable { mutableStateOf(false) }
     var capture by remember { mutableIntStateOf(0) }
+    var studioStep by remember { mutableIntStateOf(0) }
     val records by RecordStore.records.collectAsState()
     var playingId by rememberSaveable { mutableStateOf<String?>(null) }
     var editingId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -54,7 +55,7 @@ fun VynylApp() {
             // the Studio stays composed so a half-made record survives a trip to the vault
             Studio(
                 recordCount = records.size, edit = editing, onCancelEdit = { editingId = null }, onDone = {}, onPlay = { r -> playingId = r.id },
-                capture = capture, active = tab == "studio" && playing == null && !guide,
+                capture = capture, active = tab == "studio" && playing == null && !guide, onStep = { studioStep = it },
             )
             if (tab == "vault") Box(Modifier.fillMaxSize().background(V.obsidian).clickable(remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, null) {}) {
                 Vault(records = records, onPlay = { playingId = it.id }, onNew = { tab = "studio"; capture++ })
@@ -68,7 +69,8 @@ fun VynylApp() {
             verticalAlignment = Alignment.Top,
         ) {
             listOf("record" to "Record", "studio" to "Studio", "vault" to "Master Vault", "guide" to "Guide").forEach { (id, label) ->
-                val on = when (id) { "guide" -> guide; "record" -> false; else -> tab == id && playing == null && !guide }
+                val here = tab == "studio" && playing == null && !guide
+                val on = when (id) { "guide" -> guide; "record" -> here && studioStep == 0; "studio" -> here && studioStep > 0; else -> tab == id && playing == null && !guide }
                 val c = if (on) V.amberBright else V.cream.copy(alpha = 0.7f)
                 Column(
                     Modifier.weight(1f).heightIn(min = 52.dp).clickable {

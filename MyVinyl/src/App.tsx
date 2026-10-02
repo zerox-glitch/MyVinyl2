@@ -13,6 +13,7 @@ export default function App() {
   const [tab, setTab] = useState<'studio' | 'vault'>('studio')
   const [guide, setGuide] = useState(false)
   const [capture, setCapture] = useState(0)
+  const [studioStep, setStudioStep] = useState(0)
   const [records, setRecords] = useState<StoredRecord[]>([])
   const [playing, setPlaying] = useState<StoredRecord | null>(null)
   const [editing, setEditing] = useState<StoredRecord | null>(null)
@@ -39,7 +40,7 @@ export default function App() {
           </div>
           <main className="relative min-h-0 flex-1">
             {/* the Studio stays mounted so a half-made record survives a trip to the vault */}
-            <div className={tab === 'studio' ? 'h-full' : 'hidden'}><Studio recordCount={records.length} edit={editing} capture={capture} active={tab === 'studio' && !playing && !guide} onCancelEdit={() => setEditing(null)} onDone={() => refresh()} onPlay={setPlaying} /></div>
+            <div className={tab === 'studio' ? 'h-full' : 'hidden'}><Studio recordCount={records.length} edit={editing} capture={capture} active={tab === 'studio' && !playing && !guide} onStep={setStudioStep} onCancelEdit={() => setEditing(null)} onDone={() => refresh()} onPlay={setPlaying} /></div>
             {tab === 'vault' && <Vault records={records} refresh={refresh} onPlay={setPlaying} onNew={() => { setTab('studio'); setCapture((n) => n + 1) }} />}
             {playing && <Player record={playing} onClose={() => { setPlaying(null); refresh() }} onEdit={(r) => { setPlaying(null); setEditing(r); setTab('studio'); refresh() }} />}
             {guide && <Guide onClose={() => setGuide(false)} />}
@@ -47,7 +48,8 @@ export default function App() {
           </main>
           <nav className="grid min-h-[72px] shrink-0 grid-cols-4 border-t border-brass/20 bg-stone pt-2 pb-[max(8px,env(safe-area-inset-bottom))]" aria-label="Main">
             {([['record', 'Record'], ['studio', 'Studio'], ['vault', 'Master Vault'], ['guide', 'Guide']] as const).map(([id, label]) => {
-              const on = id === 'guide' ? guide : id === 'record' ? false : tab === id && !playing && !guide
+              const here = tab !== 'vault' && !playing && !guide
+              const on = id === 'guide' ? guide : id === 'record' ? here && studioStep === 0 : id === 'studio' ? here && studioStep > 0 : tab === 'vault' && !playing && !guide
               return (
                 <button key={id} type="button" aria-current={on || undefined} className={`flex min-h-12 touch-manipulation flex-col items-center gap-1 text-xs font-medium ${on ? 'text-amber-bright' : 'text-cream/70'}`}
                   onClick={() => {

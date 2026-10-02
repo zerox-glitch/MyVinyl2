@@ -80,7 +80,7 @@ private data class RenderState(val p: Float, val stage: String)
 /** [capture]: bumped by the Record tab to jump to the Capture step. [active]: false while another tab covers the Studio. */
 fun Studio(
     recordCount: Int, onDone: (RecordMeta) -> Unit, onPlay: (RecordMeta) -> Unit, edit: RecordMeta? = null, onCancelEdit: () -> Unit = {},
-    capture: Int = 0, active: Boolean = true,
+    capture: Int = 0, active: Boolean = true, onStep: (Int) -> Unit = {},
 ) {
     val ent by Pro.entitlement.collectAsState()
     val pro = ent.pro
@@ -92,6 +92,7 @@ fun Studio(
     }
 
     var step by remember { mutableIntStateOf(0) }
+    LaunchedEffect(step) { onStep(step) }
     var source by remember { mutableStateOf<FloatArray?>(null) }
     var isDemo by remember { mutableStateOf(false) }
     var srcName by remember { mutableStateOf<String?>(null) }
