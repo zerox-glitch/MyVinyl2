@@ -12,7 +12,7 @@ object Free {
     const val MAX_SECONDS = 3 * 60
     const val MAX_RECORDS = 3
     /** times a free user may go back to the Studio to re-press one record */
-    const val REEDITS = 1
+    const val REEDITS = 3
     val presets = setOf("clean", "warm", "dusty")
     val crackles = setOf("preset", "crisp", "ticktick", "fireside", "rain")
     val music = setOf("none", "serenade", "piano", "hearth", "musicbox")

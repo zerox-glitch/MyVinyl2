@@ -28,6 +28,7 @@ async function tx<T>(mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBReq
 
 export const db = {
   all: () => tx<StoredRecord[]>('readonly', (s) => s.getAll() as IDBRequest<StoredRecord[]>),
+  get: (id: string) => tx<StoredRecord | undefined>('readonly', (s) => s.get(id) as IDBRequest<StoredRecord | undefined>),
   put: (r: StoredRecord) => tx('readwrite', (s) => s.put(r)),
   del: (id: string) => tx('readwrite', (s) => s.delete(id)),
 }

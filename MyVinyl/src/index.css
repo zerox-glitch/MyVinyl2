@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Gloock&family=Hanken+Grotesk:wght@400;500;600&family=Big+Shoulders+Display:wght@600;800&family=DM+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Gloock&family=Hanken+Grotesk:wght@400;500;600;700;800&family=Big+Shoulders+Display:wght@600;800&family=DM+Mono:wght@400;500&display=swap');
 @import 'tailwindcss';
 
 @theme {
@@ -16,7 +16,7 @@
   --color-ok: #34d399;
   --font-display: 'Gloock', serif;
   --font-sans: 'Hanken Grotesk', system-ui, sans-serif;
-  --font-deco: 'Big Shoulders Display', sans-serif;
+  --font-deco: 'Hanken Grotesk', system-ui, sans-serif;
   --font-mono: 'DM Mono', monospace;
 }
 
@@ -29,7 +29,8 @@
   .no-scrollbar { scrollbar-width: none; }
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .grain { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.06'/%3E%3C/svg%3E"); }
-  .deco { font-family: var(--font-deco); text-transform: uppercase; letter-spacing: .22em; }
+  .deco { font-family: var(--font-deco); font-weight: 700; text-transform: uppercase; letter-spacing: .16em; }
+  .font-deco { font-weight: 700; }
 }
 
 @layer base {

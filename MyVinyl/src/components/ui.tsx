@@ -9,7 +9,7 @@ export function Btn({ variant = 'primary', className = '', ...p }: ButtonHTMLAtt
   return <button {...p} className={`min-h-11 rounded-full px-5 text-sm font-semibold transition disabled:opacity-40 disabled:pointer-events-none focus-visible:outline-2 focus-visible:outline-amber-bright focus-visible:outline-offset-2 ${v} ${className}`} />
 }
 
-export const Eyebrow = ({ children }: { children: ReactNode }) => <p className="deco text-[11px] text-amber-bright/90">{children}</p>
+export const Eyebrow = ({ children }: { children: ReactNode }) => <p className="deco text-[12px] text-amber-bright">{children}</p>
 
 export function Meter({ n, label }: { n: number; label: string }) {
   return (

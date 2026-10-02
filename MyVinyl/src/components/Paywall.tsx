@@ -105,7 +105,7 @@ export default function Paywall() {
             </ul>
 
             <div className="mt-6 overflow-hidden rounded-2xl border border-brass/25 bg-panel/70">
-              <div className="grid grid-cols-[1fr_64px_80px] border-b border-brass/20 px-4 py-2 deco text-[10px] tracking-[0.2em]">
+              <div className="grid grid-cols-[1fr_64px_80px] border-b border-brass/20 px-4 py-2 deco text-[12px] tracking-[0.2em]">
                 <span className="text-muted">Compare</span><span className="text-center text-muted">Free</span><span className="text-center text-amber-bright">Pro</span>
               </div>
               {ROWS.map(([k, f, p], i) => (

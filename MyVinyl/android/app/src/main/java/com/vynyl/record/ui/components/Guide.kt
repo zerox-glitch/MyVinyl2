@@ -49,12 +49,12 @@ private class GSection(val id: String, val title: String, val intro: String, val
 
 /** Plain-language help for everyone — big type, short sentences, no jargon. Same wording as web Guide.tsx. */
 private val GUIDE by lazy { listOf(
-    GSection("steps", "Making a record, step by step", "There are five simple steps. You can go back to any of them using the Back button at the bottom.", items = listOf(
+    GSection("steps", "Making a record, step by step", "There are five simple steps. You can go back to any of them using the Back button at the bottom. Tap Record at the bottom of the screen at any time to go straight to recording — nothing you have done is lost.", items = listOf(
         GItem("1. Capture", "Tap the big gold button and speak. Tap it again to stop. You can also choose a recording already on your device."),
         GItem("2. Dedication", "Write who the record is for, who it is from, and a short message. These words are printed on the record label."),
         GItem("3. Character", "Choose how your record sounds — the mood, the sound style, the crackle and the background music."),
         GItem("4. Appearance", "Choose the colour of your record."),
-        GItem("5. Press", "Tap Press and wait a few seconds. Your record is made and saved on your shelf."),
+        GItem("5. Press", "Tap Press and wait a few seconds. Your record is saved on your shelf. Then you can play it, or go back and make changes."),
     )),
     GSection("moods", "Moods — the easy choice", "A mood is a ready-made recipe. One tap chooses the sound style, the crackle and the music for you, all at once. If you are not sure what to pick, just choose a mood.",
         "Tap ▶ on any mood to hear it before you choose.", MOODS.map { GItem(it.name, it.blurb) }),
@@ -79,7 +79,7 @@ private val GUIDE by lazy { listOf(
         GItem("Back to Studio", "Changed your mind? Go back and change the music, crackle or mood. Your voice is kept, so you do not need to record again."),
     )),
     GSection("shelf", "Your shelf", "Every record you make is kept on your shelf. Tap a record to play it. You can share it as sound, or as a video of the record spinning. Your records stay on this device unless you share them."),
-    GSection("pro", "Free and Pro", "You can make records for free. Some extras — more sounds, colours, longer recordings, the gold nameplate and more changes after pressing — need Vynyl Pro. Anything marked PRO is part of it."),
+    GSection("pro", "Free and Pro", "You can make records for free. Some extras — more sounds, colours, longer recordings, the gold nameplate and changing a record more than 3 times after pressing — need Vynyl Pro. Anything marked PRO is part of it."),
 ) }
 
 @Composable

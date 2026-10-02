@@ -11,12 +11,12 @@ export function Nameplate({ from, to, className = '' }: { from: string; to: stri
       <div className="absolute inset-[6px] rounded-[7px] border border-[#c9963e]/55" />
       <div className="relative flex h-full flex-col items-center justify-evenly px-2 py-4 text-center">
         <div>
-          <p className="font-deco text-[10px] font-semibold tracking-[.4em]" style={goldText}>FROM</p>
+          <p className="font-deco text-[12px] font-semibold tracking-[.4em]" style={goldText}>FROM</p>
           <p className="mt-1 max-w-full truncate font-display text-xl italic" style={goldText}>{from || 'Someone'}</p>
         </div>
         <svg viewBox="0 0 200 28" className="w-4/5" aria-hidden><defs><linearGradient id="np-g" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#fff1c1" /><stop offset="1" stopColor="#d4952a" /></linearGradient></defs><path d="M10 14h70M120 14h70" stroke="url(#np-g)" strokeWidth="2" /><path d="M100 2l12 12-12 12-12-12z" fill="url(#np-g)" /></svg>
         <div>
-          <p className="font-deco text-[10px] font-semibold tracking-[.4em]" style={goldText}>TO</p>
+          <p className="font-deco text-[12px] font-semibold tracking-[.4em]" style={goldText}>TO</p>
           <p className="mt-1 max-w-full truncate font-display text-xl italic" style={goldText}>{to || 'You'}</p>
         </div>
       </div>
@@ -31,7 +31,7 @@ export default function NameplatePreview({ from, to, onClose }: { from: string; 
       <div className="w-full rounded-t-[28px] border-t border-brass/40 bg-stone px-6 pt-3 pb-[max(24px,env(safe-area-inset-bottom))]" onClick={(e) => e.stopPropagation()}>
         <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-cream/25" />
         <div className="flex items-center justify-between">
-          <p className="deco text-[10px] text-amber-bright">Preview</p>
+          <p className="deco text-[12px] text-amber-bright">Preview</p>
           <button type="button" onClick={onClose} aria-label="Close" className="flex h-9 w-9 items-center justify-center rounded-full text-muted hover:text-cream">✕</button>
         </div>
         <h2 className="font-display text-2xl leading-tight">Their names, in glowing gold</h2>

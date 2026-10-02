@@ -53,7 +53,7 @@ private val PlateGlow = Shadow(Color(0xFFF5B638), blurRadius = 14f)
 /** The gold plinth nameplate drawn like the 3D texture (FROM · deco divider · TO), for previewing before Pro. */
 @Composable
 fun Nameplate(from: String, to: String, modifier: Modifier = Modifier) {
-    val small = TextStyle(brush = PlateGold, fontFamily = Fonts.deco, fontWeight = FontWeight(600), fontSize = 10.sp, letterSpacing = 4.sp, shadow = PlateGlow)
+    val small = TextStyle(brush = PlateGold, fontFamily = Fonts.sans, fontWeight = FontWeight(700), fontSize = 11.sp, letterSpacing = 3.sp, shadow = PlateGlow)
     val name = TextStyle(brush = PlateGold, fontFamily = Fonts.display, fontStyle = FontStyle.Italic, fontSize = 20.sp, shadow = PlateGlow, textAlign = TextAlign.Center)
     val outer = RoundedCornerShape(12.dp)
     Box(

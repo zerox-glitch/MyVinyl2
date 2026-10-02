@@ -186,7 +186,7 @@ export default function VideoExport({ record, style, labelPhoto, pro, onClose }:
 
       <header className="flex items-center justify-between px-5 pt-4">
         <div>
-          <p className="deco text-[10px] text-amber-bright">{phase === 'done' ? 'Your video is ready' : 'Pressing your video'}</p>
+          <p className="deco text-[12px] text-amber-bright">{phase === 'done' ? 'Your video is ready' : 'Pressing your video'}</p>
           <h2 id="video-export-title" className="mt-1 font-display text-2xl leading-tight">
             {phase === 'error' ? 'Something went wrong' : phase === 'done' ? 'A record worth sharing.' : phase === 'recording' ? 'Rolling…' : 'Cueing the needle…'}
           </h2>

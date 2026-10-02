@@ -7,12 +7,12 @@ type Section = { id: string; title: string; intro: string; tip?: string; items?:
 
 /** Plain-language help for everyone — big type, short sentences, no jargon. Same wording as android Guide.kt. */
 export const GUIDE: Section[] = [
-  { id: 'steps', title: 'Making a record, step by step', intro: 'There are five simple steps. You can go back to any of them using the Back button at the bottom.', items: [
+  { id: 'steps', title: 'Making a record, step by step', intro: 'There are five simple steps. You can go back to any of them using the Back button at the bottom. Tap Record at the bottom of the screen at any time to go straight to recording — nothing you have done is lost.', items: [
     { name: '1. Capture', text: 'Tap the big gold button and speak. Tap it again to stop. You can also choose a recording already on your device.' },
     { name: '2. Dedication', text: 'Write who the record is for, who it is from, and a short message. These words are printed on the record label.' },
     { name: '3. Character', text: 'Choose how your record sounds — the mood, the sound style, the crackle and the background music.' },
     { name: '4. Appearance', text: 'Choose the colour of your record.' },
-    { name: '5. Press', text: 'Tap Press and wait a few seconds. Your record is made and saved on your shelf.' },
+    { name: '5. Press', text: 'Tap Press and wait a few seconds. Your record is saved on your shelf. Then you can play it, or go back and make changes.' },
   ] },
   { id: 'moods', title: 'Moods — the easy choice', intro: 'A mood is a ready-made recipe. One tap chooses the sound style, the crackle and the music for you, all at once. If you are not sure what to pick, just choose a mood.', tip: 'Tap ▶ on any mood to hear it before you choose.', items: MOODS.map((m) => ({ name: m.name, text: m.blurb })) },
   { id: 'style', title: 'Sound style', intro: 'This changes how your voice sounds. Some styles keep your voice clear and modern. Others make it sound old — like a family record from long ago, or a radio broadcast.', tip: 'The little bars show Warmth (how soft and cosy), Age (how old it sounds) and Texture (how much grain and noise).', items: PRESETS.map((p) => ({ name: p.name, text: p.blurb })) },
@@ -33,7 +33,7 @@ export const GUIDE: Section[] = [
     { name: 'Back to Studio', text: 'Changed your mind? Go back and change the music, crackle or mood. Your voice is kept, so you do not need to record again.' },
   ] },
   { id: 'shelf', title: 'Your shelf', intro: 'Every record you make is kept on your shelf. Tap a record to play it. You can share it as sound, or as a video of the record spinning. Your records stay on this device unless you share them.' },
-  { id: 'pro', title: 'Free and Pro', intro: 'You can make records for free. Some extras — more sounds, colours, longer recordings, the gold nameplate and more changes after pressing — need Vynyl Pro. Anything marked PRO is part of it.' },
+  { id: 'pro', title: 'Free and Pro', intro: 'You can make records for free. Some extras — more sounds, colours, longer recordings, the gold nameplate and changing a record more than 3 times after pressing — need Vynyl Pro. Anything marked PRO is part of it.' },
 ]
 
 export default function Guide({ onClose }: { onClose: () => void }) {

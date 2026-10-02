@@ -73,7 +73,7 @@ fun Btn(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, varian
 
 @Composable
 fun Eyebrow(text: String, modifier: Modifier = Modifier) {
-    BasicText(text.uppercase(), modifier, style = decoStyle(11, V.amberBright.copy(alpha = 0.9f)))
+    BasicText(text.uppercase(), modifier, style = decoStyle(12, V.amberBright))
 }
 
 @Composable

@@ -46,15 +46,18 @@ object Fonts {
     /** Gloock — display serif */
     val display = FontFamily(Font(R.font.gloock_regular))
     /** Hanken Grotesk — body */
-    val sans = FontFamily(variable(R.font.hanken_grotesk, 400), variable(R.font.hanken_grotesk, 500), variable(R.font.hanken_grotesk, 600))
+    val sans = FontFamily(variable(R.font.hanken_grotesk, 400), variable(R.font.hanken_grotesk, 500), variable(R.font.hanken_grotesk, 600), variable(R.font.hanken_grotesk, 700))
     /** Big Shoulders Display — uppercase deco labels */
     val deco = FontFamily(variable(R.font.big_shoulders_display, 600), variable(R.font.big_shoulders_display, 800))
     /** DM Mono */
     val mono = FontFamily(Font(R.font.dm_mono_regular, FontWeight.Normal), Font(R.font.dm_mono_medium, FontWeight.Medium))
 }
 
-/** `.deco` utility from the web app: Big Shoulders, uppercase, wide tracking. Callers uppercase the text. */
-fun decoStyle(size: Int = 11, color: Color = V.amberBright) = TextStyle(fontFamily = Fonts.deco, fontWeight = FontWeight(600), fontSize = size.sp, letterSpacing = (size * 0.18).sp, color = color)
+/** `.deco` utility from the web app: bold Hanken Grotesk, uppercase, wide tracking — readable at small sizes. Callers uppercase the text. */
+fun decoStyle(size: Int = 11, color: Color = V.amberBright): TextStyle {
+    val s = maxOf(size, 12)
+    return TextStyle(fontFamily = Fonts.sans, fontWeight = FontWeight(700), fontSize = s.sp, letterSpacing = (s * 0.14).sp, color = color)
+}
 fun displayStyle(size: Int, color: Color = V.cream) = TextStyle(fontFamily = Fonts.display, fontSize = size.sp, lineHeight = (size * 1.05).sp, color = color)
 fun sansStyle(size: Int, color: Color = V.cream, weight: Int = 400) = TextStyle(fontFamily = Fonts.sans, fontWeight = FontWeight(weight), fontSize = size.sp, lineHeight = (size * 1.4).sp, color = color)
 fun monoStyle(size: Int, color: Color = V.muted, weight: Int = 400) = TextStyle(fontFamily = Fonts.mono, fontWeight = FontWeight(weight), fontSize = size.sp, color = color)

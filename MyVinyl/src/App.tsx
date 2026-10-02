@@ -12,6 +12,7 @@ import { db, type StoredRecord } from './lib/db'
 export default function App() {
   const [tab, setTab] = useState<'studio' | 'vault'>('studio')
   const [guide, setGuide] = useState(false)
+  const [capture, setCapture] = useState(0)
   const [records, setRecords] = useState<StoredRecord[]>([])
   const [playing, setPlaying] = useState<StoredRecord | null>(null)
   const [editing, setEditing] = useState<StoredRecord | null>(null)
@@ -37,20 +38,27 @@ export default function App() {
             <span className="flex items-center gap-1.5"><span>▾</span><span>▴▴</span><span className="inline-block h-2.5 w-5 rounded-[2px] border border-cream/70 p-px"><span className="block h-full w-4/5 bg-cream/70" /></span></span>
           </div>
           <main className="relative min-h-0 flex-1">
-            {tab === 'studio' ? <Studio recordCount={records.length} edit={editing} onCancelEdit={() => setEditing(null)} onDone={(r) => { refresh(); setEditing(null); setTab('vault'); setPlaying(r) }} /> : <Vault records={records} refresh={refresh} onPlay={setPlaying} onNew={() => setTab('studio')} />}
+            {/* the Studio stays mounted so a half-made record survives a trip to the vault */}
+            <div className={tab === 'studio' ? 'h-full' : 'hidden'}><Studio recordCount={records.length} edit={editing} capture={capture} active={tab === 'studio' && !playing && !guide} onCancelEdit={() => setEditing(null)} onDone={() => refresh()} onPlay={setPlaying} /></div>
+            {tab === 'vault' && <Vault records={records} refresh={refresh} onPlay={setPlaying} onNew={() => { setTab('studio'); setCapture((n) => n + 1) }} />}
             {playing && <Player record={playing} onClose={() => { setPlaying(null); refresh() }} onEdit={(r) => { setPlaying(null); setEditing(r); setTab('studio'); refresh() }} />}
             {guide && <Guide onClose={() => setGuide(false)} />}
             <Paywall />
           </main>
-          <nav className="flex min-h-[68px] shrink-0 items-start justify-around border-t border-brass/20 bg-stone pt-2 pb-[max(8px,env(safe-area-inset-bottom))]" aria-label="Main">
-            {([['studio', 'Studio', '●'], ['vault', 'Master Vault', '◎']] as const).map(([id, label, glyph]) => (
-              <button key={id} onClick={() => { setTab(id); setPlaying(null) }} aria-current={tab === id && !playing} className={`flex min-h-12 min-w-24 touch-manipulation flex-col items-center gap-0.5 text-[11px] ${tab === id ? 'text-amber-bright' : 'text-muted'}`}>
-                <span className="text-lg leading-none">{glyph}</span>{label}
-              </button>
-            ))}
-            <button type="button" onClick={() => setGuide(true)} aria-pressed={guide} className={`flex min-h-12 min-w-24 touch-manipulation flex-col items-center gap-0.5 text-[11px] ${guide ? 'text-amber-bright' : 'text-muted'}`}>
-              <span className="grid h-[18px] w-[18px] place-items-center rounded-full border-[1.5px] border-current text-[11px] font-bold leading-none">?</span>Guide
-            </button>
+          <nav className="grid min-h-[72px] shrink-0 grid-cols-4 border-t border-brass/20 bg-stone pt-2 pb-[max(8px,env(safe-area-inset-bottom))]" aria-label="Main">
+            {([['record', 'Record'], ['studio', 'Studio'], ['vault', 'Master Vault'], ['guide', 'Guide']] as const).map(([id, label]) => {
+              const on = id === 'guide' ? guide : id === 'record' ? false : tab === id && !playing && !guide
+              return (
+                <button key={id} type="button" aria-current={on || undefined} className={`flex min-h-12 touch-manipulation flex-col items-center gap-1 text-xs font-medium ${on ? 'text-amber-bright' : 'text-cream/70'}`}
+                  onClick={() => {
+                    if (id === 'guide') return setGuide(true)
+                    setGuide(false); setPlaying(null); setTab(id === 'vault' ? 'vault' : 'studio')
+                    if (id === 'record') setCapture((n) => n + 1)
+                  }}>
+                  <NavIcon id={id} on={on} />{label}
+                </button>
+              )
+            })}
           </nav>
           <Onboarding />
           <Splash />
@@ -58,5 +66,19 @@ export default function App() {
         </div>
       </div>
     </div>
+  )
+}
+
+/** Bottom-bar icons, drawn on a 24-unit grid; the active one gets an amber fill accent. */
+function NavIcon({ id, on }: { id: 'record' | 'studio' | 'vault' | 'guide'; on: boolean }) {
+  const s = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.7, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }
+  const fill = on ? 'currentColor' : 'none'
+  return (
+    <svg viewBox="0 0 24 24" className="h-6 w-6" aria-hidden>
+      {id === 'record' && <g {...s}><rect x="9" y="3" width="6" height="11" rx="3" fill={fill} /><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7" /></g>}
+      {id === 'studio' && <g {...s}><circle cx="11" cy="13" r="8" /><circle cx="11" cy="13" r="2.6" fill={fill} /><path d="M19.5 3.5 15 12" /><circle cx="19.5" cy="3.5" r="1.2" fill="currentColor" stroke="none" /></g>}
+      {id === 'vault' && <g {...s}><path d="M3 20h18M3 12h18" /><rect x="4.5" y="4" width="3" height="8" rx=".6" /><rect x="8.5" y="4" width="3" height="8" rx=".6" fill={fill} /><rect x="12.5" y="5.5" width="3" height="6.5" rx=".6" /><circle cx="16" cy="16" r="3.2" /><circle cx="16" cy="16" r=".9" fill="currentColor" stroke="none" /></g>}
+      {id === 'guide' && <g {...s}><circle cx="12" cy="12" r="9" fill={on ? 'currentColor' : 'none'} fillOpacity=".15" /><path d="M9.6 9.3a2.5 2.5 0 1 1 3.4 2.3c-.7.3-1 .8-1 1.5v.6" /><circle cx="12" cy="17" r=".6" fill="currentColor" /></g>}
+    </svg>
   )
 }

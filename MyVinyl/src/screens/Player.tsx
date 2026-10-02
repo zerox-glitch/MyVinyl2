@@ -141,7 +141,7 @@ export default function Player({ record, onClose, onEdit }: { record: StoredReco
 
       {!full && (
         <div className="no-scrollbar relative flex-1 overflow-y-auto px-6 pb-4">
-          <p className="deco text-[10px] text-amber-bright">{record.occasion} · {record.date}</p>
+          <p className="deco text-[12px] text-amber-bright">{record.occasion} · {record.date}</p>
           <h1 className="mt-1 font-display text-3xl leading-tight">{record.title}</h1>
           <p className="text-sm text-muted">for {record.recipient} · from {record.sender}</p>
           {!pro && <button type="button" onClick={() => setPlatePreview(true)} className="mt-2 inline-flex items-center gap-2 rounded-full border border-amber/40 bg-amber/10 py-1 pl-1.5 pr-3 text-[11px] text-cream/85 transition hover:border-amber-bright"><ProBadge />Gold nameplate on the plinth</button>}

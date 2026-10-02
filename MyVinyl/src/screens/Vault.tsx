@@ -29,7 +29,7 @@ export default function Vault({ records, refresh, onPlay, onNew }: { records: St
         <h1 className="mt-1 font-display text-4xl">Your shelf</h1>
         {!pro && (
           <button type="button" onClick={() => openPaywall('Free shelves hold three records. Go Pro to keep every voice you press.')} className="mt-3 block w-full rounded-xl border border-brass/25 bg-panel/70 px-3.5 py-2.5 text-left transition hover:border-amber/60">
-            <span className="flex items-center justify-between text-[11px]"><span className="text-cream/85">{Math.min(records.length, FREE.maxRecords)} of {FREE.maxRecords} free shelf slots used</span><span className="deco text-[10px] text-amber-bright">Unlimited with Pro ›</span></span>
+            <span className="flex items-center justify-between text-[11px]"><span className="text-cream/85">{Math.min(records.length, FREE.maxRecords)} of {FREE.maxRecords} free shelf slots used</span><span className="deco text-[12px] text-amber-bright">Unlimited with Pro ›</span></span>
             <span className="mt-2 flex gap-1">{Array.from({ length: FREE.maxRecords }, (_, i) => <span key={i} className={`h-1 flex-1 rounded-full ${i < records.length ? 'bg-amber-bright' : 'bg-cream/10'}`} />)}</span>
           </button>
         )}

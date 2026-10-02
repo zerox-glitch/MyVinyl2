@@ -11,11 +11,29 @@ import { FREE, PRO_SECONDS, isFree, openPaywall, usePro, type Gate } from '../li
 const STEPS = ['Capture', 'Dedication', 'Character', 'Appearance', 'Press']
 
 /** `edit`: an existing record opened from the player — the Studio reloads its voice + settings and re-presses it in place. */
-export default function Studio({ onDone, recordCount, edit, onCancelEdit }: { onDone: (r: StoredRecord) => void; recordCount: number; edit?: StoredRecord | null; onCancelEdit?: () => void }) {
+/** `capture`: bumped by the Record tab to jump straight to the Capture step without losing anything else. */
+export default function Studio({ onDone, onPlay, recordCount, edit, onCancelEdit, capture = 0, active = true }: { onDone: (r: StoredRecord) => void; onPlay: (r: StoredRecord) => void; recordCount: number; edit?: StoredRecord | null; onCancelEdit?: () => void; capture?: number; active?: boolean }) {
   const pro = usePro().pro
   const locked = (kind: Gate, id: string) => !pro && !isFree(kind, id)
   const gate = (kind: Gate, id: string, name: string, fn: () => void) => (locked(kind, id) ? openPaywall(`${name} is part of Vynyl Pro. Unlock it — and every other sound — below.`) : fn())
   const [step, setStep] = useState(0)
+  /** the record this session last pressed — the Studio stays on it so you can go back and change things */
+  const [pressed, setPressed] = useState<StoredRecord | null>(null)
+  const base = pressed ?? edit ?? null
+  const editsLeft = pro ? Infinity : Math.max(0, FREE.reedits - (base?.reedits ?? 0))
+  useEffect(() => { if (capture) { setPressed(null); setStep(0) } }, [capture])
+  useEffect(() => { setPressed(null) }, [edit])
+  const reset = () => { setPressed(null); setStep(0); setSource(null); onCancelEdit?.() }
+  const makeChanges = async () => {
+    if (!pressed) return setStep(2)
+    const cur = (await db.get(pressed.id)) ?? pressed
+    if (!pro) {
+      if (editsLeft <= 0) return openPaywall(`Free records can be changed ${FREE.reedits} times after pressing. Go Pro to change them as often as you like.`)
+      const next = { ...cur, reedits: (cur.reedits ?? 0) + 1 }
+      await db.put(next); setPressed(next); onDone(next)
+    } else setPressed(cur)
+    setStep(2)
+  }
   const [source, setSource] = useState<Float32Array | null>(null)
   const [meta, setMeta] = useState({ title: 'The Porch Song', recipient: 'Nana Ruth', sender: 'Theo', dedication: 'For every summer evening you hummed this to me.', occasion: 'Grandparents', date: new Date().toISOString().slice(0, 10), sideA: 'Side A', sideB: 'Side B' })
   const [presetId, setPreset] = useState('warm')
@@ -30,7 +48,7 @@ export default function Studio({ onDone, recordCount, edit, onCancelEdit }: { on
   const [withVoice, setWithVoice] = useState(false)
   const hasVoice = !!source && !demoSources.has(source)
   const preview = usePreview(withVoice && hasVoice ? source : null)
-  useEffect(() => { if (step !== 2) preview.stop() }, [step])
+  useEffect(() => { if (step !== 2 || !active) preview.stop() }, [step, active])
   useEffect(() => { preview.apply({ musicLevel, crackleLevel, character, volume }) }, [musicLevel, crackleLevel, character, volume])
   const listen = (key: string, over: { presetId?: string; crackleId?: string; music?: string; musicLevel?: number }) =>
     preview.toggle(key, { presetId: over.presetId ?? presetId, crackleId: over.crackleId ?? crackleId, music: over.music ?? music, musicLevel: over.musicLevel ?? musicLevel, crackleLevel, character, volume })
@@ -58,7 +76,7 @@ export default function Studio({ onDone, recordCount, edit, onCancelEdit }: { on
     <div className="flex h-full flex-col">
       <header className="px-6 pt-4">
         <div className="flex items-center justify-between gap-3"><Eyebrow>Studio · {STEPS[step]}</Eyebrow><ProButton /></div>
-        {edit && <div className="mt-3 flex items-center gap-2 rounded-full border border-amber/40 bg-amber/10 py-1 pl-3 pr-1 text-[11px] text-cream/85"><span className="min-w-0 flex-1 truncate">Re-pressing “{edit.title}”</span><button type="button" onClick={() => { setStep(0); setSource(null); onCancelEdit?.() }} disabled={!!render} className="min-h-8 rounded-full px-3 text-muted hover:text-cream">Cancel</button></div>}
+        {base && !(pressed && step === 4) && <div className="mt-3 flex items-center gap-2 rounded-full border border-amber/40 bg-amber/10 py-1 pl-3 pr-1 text-xs text-cream/85"><span className="min-w-0 flex-1 truncate">Changing “{base.title}”</span><button type="button" onClick={reset} disabled={!!render} className="min-h-9 rounded-full px-3 text-muted hover:text-cream">New record</button></div>}
         <div className="mt-3 flex gap-1.5" role="progressbar" aria-valuenow={step + 1} aria-valuemax={5}>
           {STEPS.map((s, i) => <span key={s} className={`h-0.5 flex-1 rounded-full ${i <= step ? 'bg-amber' : 'bg-cream/10'}`} />)}
         </div>
@@ -103,7 +121,7 @@ export default function Studio({ onDone, recordCount, edit, onCancelEdit }: { on
             </section>
 
             <section aria-labelledby="char-h" className="space-y-3">
-              <div className="flex items-center gap-3 pt-1 text-[11px] text-muted" aria-hidden="true"><span className="h-px flex-1 bg-brass/25" /><span className="deco text-[10px] text-amber-bright/80">Or customise your own</span><span className="h-px flex-1 bg-brass/25" /></div>
+              <div className="flex items-center gap-3 pt-1 text-[11px] text-muted" aria-hidden="true"><span className="h-px flex-1 bg-brass/25" /><span className="deco text-[12px] text-amber-bright/80">Or customise your own</span><span className="h-px flex-1 bg-brass/25" /></div>
               <SectionTitle id="char-h" n="II">Character</SectionTitle>
               <LevelBar label="Character strength" value={character} max={1.5} onChange={setCharacter} ends={['Clean', 'Heavy']} locked={!pro} />
               {PRESETS.map((p, i) => (
@@ -198,31 +216,43 @@ export default function Studio({ onDone, recordCount, edit, onCancelEdit }: { on
             <div className={`relative grid h-52 w-52 place-items-center rounded-full shadow-[0_30px_60px_-20px_black,0_0_0_6px_rgba(180,83,9,.25),0_0_60px_-10px_rgba(217,119,6,.35)] ${render ? 'animate-spin [animation-duration:1.8s]' : ''}`} style={{ background: `repeating-radial-gradient(${style.disc} 0 2px, #2a2522 3px 4px)` }}>
               <span className="grid h-16 w-16 place-items-center rounded-full font-display text-xs" style={{ background: style.label, color: style.ink }}>VR</span>
             </div>
-            <h2 className="mt-8 font-display text-3xl">{render ? 'Pressing your record' : 'Ready to press.'}</h2>
+            <h2 className="mt-8 font-display text-3xl">{render ? 'Pressing your record' : pressed ? 'Pressed! It’s on your shelf.' : 'Ready to press.'}</h2>
             <p className="mt-2 text-sm text-muted">{render ? render.stage : `${PRESETS.find((p) => p.id === presetId)!.name} · ${CRACKLES.find((c) => c.id === crackleId)!.name} · ${MUSIC.find((m) => m.id === music)!.name} · ${style.name}. Every crackle is computed on this device.`}</p>
             {render && <div className="mt-6 h-1 w-full overflow-hidden rounded-full bg-cream/10"><div className="h-full bg-amber transition-[width]" style={{ width: `${render.p * 100}%` }} /></div>}
             {render && <p className="mt-2 font-mono text-xs text-muted">{Math.round(render.p * 100)}%</p>}
+            {pressed && !render && (
+              <div className="mt-7 w-full space-y-3">
+                <button type="button" onClick={() => onPlay(pressed)} className="min-h-14 w-full rounded-full bg-gradient-to-b from-[#f0c86a] via-[#c99234] to-[#8a5a1a] font-deco text-sm uppercase tracking-[0.2em] text-obsidian">▶ Play my record</button>
+                <button type="button" onClick={() => void makeChanges()} className="flex min-h-14 w-full items-center justify-center gap-2 rounded-full border border-amber/50 text-base text-cream">
+                  Go back and make changes {pro ? null : editsLeft > 0 ? <span className="text-sm text-amber-bright">· {editsLeft} free left</span> : <ProBadge />}
+                </button>
+                <button type="button" onClick={reset} className="min-h-12 w-full text-base text-muted hover:text-cream">Start a new record</button>
+              </div>
+            )}
           </div>
         )}
       </div>
       <footer className="flex items-center justify-between border-t border-brass/15 px-6 py-3">
-        <Btn variant="quiet" onClick={() => setStep((s) => s - 1)} disabled={step === 0 || !!render}>Back</Btn>
-        {step < 4 ? (
+        <Btn variant="quiet" onClick={() => (pressed && step === 4 ? void makeChanges() : setStep((s) => s - 1))} disabled={step === 0 || !!render}>Back</Btn>
+        {pressed && step === 4 ? (
+          <Btn onClick={() => onPlay(pressed)}>Play</Btn>
+        ) : step < 4 ? (
           <Btn onClick={() => setStep((s) => s + 1)} disabled={step === 0 && !source}>Continue</Btn>
         ) : (
           <Btn disabled={!!render || !source} onClick={async () => {
-            if (!edit && !pro && recordCount >= FREE.maxRecords) return openPaywall(`Your free shelf holds ${FREE.maxRecords} records and it’s full. Go Pro for unlimited records.`)
+            if (!base && !pro && recordCount >= FREE.maxRecords) return openPaywall(`Your free shelf holds ${FREE.maxRecords} records and it’s full. Go Pro for unlimited records.`)
             if (locked('preset', presetId) || locked('crackle', crackleId) || locked('music', music) || locked('style', styleId)) return openPaywall('This record uses Pro sounds or wax. Go Pro to press it, or pick free options.')
-            const id = edit?.id ?? crypto.randomUUID(), preset = PRESETS.find((p) => p.id === presetId)!
+            const prev = base ? (await db.get(base.id)) ?? base : null
+            const id = prev?.id ?? crypto.randomUUID(), preset = PRESETS.find((p) => p.id === presetId)!
             preview.stop(); setRender({ p: 0, stage: 'Preparing source' })
             const [l, r] = await renderMaster(source!, { preset, crackle: CRACKLES.find((c) => c.id === crackleId), seed: id, music: musicBed(music), musicLevel, crackleLevel, character, volume, onProgress: (p, stage) => setRender({ p: p * 0.9, stage }) })
             setRender({ p: 0.94, stage: 'Encoding' }); await new Promise((r) => setTimeout(r, 30))
             const master = encodeWav(l, r)
             setRender({ p: 0.98, stage: 'Generating waveform' })
             const settings: StudioSettings = { presetId, styleId, crackleId, music, musicLevel, crackleLevel, character, volume, moodId }
-            const rec: StoredRecord = { ...edit, id, ...meta, presetId, crackleId, musicId: music, styleId, duration: l.length / SR, wave: waveform(l), createdAt: edit?.createdAt ?? Date.now(), favorite: edit?.favorite ?? false, master, voice: new Blob([source!.slice().buffer]), settings }
+            const rec: StoredRecord = { ...prev, id, ...meta, presetId, crackleId, musicId: music, styleId, duration: l.length / SR, wave: waveform(l), createdAt: prev?.createdAt ?? Date.now(), favorite: prev?.favorite ?? false, master, voice: new Blob([source!.slice().buffer]), settings }
             await db.put(rec); navigator.vibrate?.([10, 40, 20])
-            setRender(null); setStep(0); setSource(null); onDone(rec)
+            setRender(null); setPressed(rec); onDone(rec)
           }}>Press record</Btn>
         )}
       </footer>
@@ -287,7 +317,7 @@ function Capture({ source, setSource, max: MAX, pro }: { source: Float32Array | 
         <span className="pointer-events-none absolute inset-2 rounded-[22px] border border-cream/[.06]" aria-hidden />
         <span className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-[repeating-radial-gradient(circle,rgba(254,243,199,.05)_0_1px,transparent_1px_5px)]" aria-hidden />
         <div className="relative flex items-center justify-between">
-          <span className="flex items-center gap-2 deco text-[10px] tracking-[.2em] text-muted">
+          <span className="flex items-center gap-2 deco text-[12px] tracking-[.2em] text-muted">
             <span className={`h-2 w-2 rounded-full ${state === 'rec' ? 'animate-pulse bg-err shadow-[0_0_10px_#f87171]' : state === 'paused' ? 'bg-amber' : 'bg-cream/20'}`} />
             {state === 'rec' ? 'On air' : state === 'paused' ? 'Paused' : 'Standby'}
           </span>
@@ -315,14 +345,14 @@ function Capture({ source, setSource, max: MAX, pro }: { source: Float32Array | 
               <button onClick={start} aria-label={source ? 'Record again' : 'Start recording'} className="group grid h-20 w-20 place-items-center rounded-full bg-gradient-to-b from-[#e0b85a] to-[#7a4a12] p-[3px] shadow-[0_12px_30px_-10px_rgba(217,119,6,.7)] transition active:scale-95">
                 <span className="grid h-full w-full place-items-center rounded-full bg-[radial-gradient(circle_at_35%_30%,#c0392b,#7f1d1d)] shadow-[inset_0_2px_6px_rgba(0,0,0,.5)]"><span className="h-6 w-6 rounded-full bg-cream shadow-[0_0_14px_rgba(254,243,199,.5)] transition group-hover:scale-110" /></span>
               </button>
-              <span className="deco text-[10px] tracking-[.2em] text-muted">{source ? 'Record again' : 'Tap to record'}</span>
+              <span className="deco text-[12px] tracking-[.2em] text-muted">{source ? 'Record again' : 'Tap to record'}</span>
               </div>
           )}
         </div>
       </div>
       </div>
 
-      <div className="mt-6 flex items-center gap-3 deco text-[10px] tracking-[.2em] text-muted/70" aria-hidden><span className="h-px flex-1 bg-brass/20" />or<span className="h-px flex-1 bg-brass/20" /></div>
+      <div className="mt-6 flex items-center gap-3 deco text-[12px] tracking-[.2em] text-muted/70" aria-hidden><span className="h-px flex-1 bg-brass/20" />or<span className="h-px flex-1 bg-brass/20" /></div>
       <div className="mt-4 grid grid-cols-2 gap-2">
         <label className="flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-full border border-brass/40 bg-panel/60 text-sm transition hover:border-amber-bright hover:bg-panel">
           <span className="text-amber-bright" aria-hidden>↥</span>Import audio<input type="file" accept="audio/*" className="sr-only" onChange={async (e) => { const f = e.target.files?.[0]; if (f) { const raw = await decodeToMono(f).catch(() => null), d = raw && raw.length > MAX * SR ? raw.slice(0, MAX * SR) : raw; setSource(d); setSrcName(d ? f.name : null); setTrimmed(!!raw && raw.length > MAX * SR) } e.target.value = '' }} />
@@ -340,7 +370,7 @@ function Capture({ source, setSource, max: MAX, pro }: { source: Float32Array | 
               {pl.on ? <span className="flex gap-1"><span className="h-4 w-1.5 rounded-sm bg-obsidian" /><span className="h-4 w-1.5 rounded-sm bg-obsidian" /></span> : <span className="ml-1 h-0 w-0 border-y-[8px] border-l-[13px] border-y-transparent border-l-obsidian" />}
             </button>
             <div className="min-w-0 flex-1">
-              <p className="flex items-center gap-1.5 deco text-[10px] tracking-[.2em] text-ok"><span className="h-1.5 w-1.5 rounded-full bg-ok shadow-[0_0_8px_#34d399]" />Source captured</p>
+              <p className="flex items-center gap-1.5 deco text-[12px] tracking-[.2em] text-ok"><span className="h-1.5 w-1.5 rounded-full bg-ok shadow-[0_0_8px_#34d399]" />Source captured</p>
               <p className="mt-0.5 truncate font-display text-lg leading-tight text-cream" title={srcName ?? 'Your recording'}>{srcName ?? 'Your recording'}</p>
             </div>
           </div>
@@ -362,7 +392,7 @@ function Capture({ source, setSource, max: MAX, pro }: { source: Float32Array | 
 function Dedication({ meta, setMeta }: { meta: Record<string, string>; setMeta: (fn: (m: any) => any) => void }) {
   const field = (k: string, label: string, ph = '') => (
     <label className="block">
-      <span className="deco text-[10px] text-muted">{label}</span>
+      <span className="deco text-[12px] text-muted">{label}</span>
       <input value={meta[k]} placeholder={ph} onChange={(e) => setMeta((m: any) => ({ ...m, [k]: e.target.value }))}
         className="mt-1 w-full border-b border-brass/30 bg-transparent py-2 text-cream outline-none placeholder:text-muted/50 focus:border-amber-bright" />
     </label>
@@ -373,13 +403,13 @@ function Dedication({ meta, setMeta }: { meta: Record<string, string>; setMeta: 
       {field('title', 'Memory title', 'The night we met')}
       <div className="grid grid-cols-2 gap-4">{field('recipient', 'For')}{field('sender', 'From')}</div>
       <div>
-        <span className="deco text-[10px] text-muted">Occasion</span>
+        <span className="deco text-[12px] text-muted">Occasion</span>
         <div className="mt-2 flex flex-wrap gap-1.5">
           {OCCASIONS.map((o) => <button key={o} onClick={() => setMeta((m: any) => ({ ...m, occasion: o }))} className={`rounded-full border px-3.5 py-2 text-xs transition ${meta.occasion === o ? 'border-amber bg-amber/15 text-cream shadow-[0_0_16px_-4px_rgba(217,119,6,.6)]' : 'border-brass/25 text-muted hover:border-brass/60'}`}>{o}</button>)}
         </div>
       </div>
       <label className="block">
-        <span className="deco text-[10px] text-muted">Dedication</span>
+        <span className="deco text-[12px] text-muted">Dedication</span>
         <textarea rows={3} value={meta.dedication} onChange={(e) => setMeta((m: any) => ({ ...m, dedication: e.target.value }))} placeholder="What do you want them to remember?"
           className="mt-2 w-full resize-none rounded-2xl border border-brass/25 bg-[linear-gradient(180deg,#26211c,#1a1714)] p-4 font-display text-lg italic leading-snug outline-none focus:border-amber-bright" />
       </label>
@@ -476,7 +506,7 @@ function LevelBar({ label, value, max, onChange, ends = ['Soft', 'Full'], classN
     <label className={`relative block rounded-xl border border-brass/20 bg-panel/70 px-3.5 py-2.5 ${className}`}>
       {locked && <button type="button" onClick={() => openPaywall(`${label} control is part of Vynyl Pro.`)} aria-label={`${label} — unlock with Pro`} className="absolute inset-0 z-10 rounded-xl" />}
       <span className="flex items-baseline justify-between">
-        <span className="flex items-center gap-1.5 deco text-[10px] text-cream/80">{label}{locked && <ProBadge />}</span>
+        <span className="flex items-center gap-1.5 deco text-[12px] text-cream/80">{label}{locked && <ProBadge />}</span>
         <span className="font-mono text-[11px] text-amber-bright">{Math.round(pct)}%</span>
       </span>
       <input type="range" min={0} max={max} step={0.01} value={value} onChange={(e) => onChange(+e.target.value)} aria-label={label} disabled={locked}

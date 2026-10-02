@@ -114,13 +114,13 @@ export default function PhotoAdjust({ source, initial, labelColor, busy, onCance
 
         {a.mode === 'fill' ? (
           <label className="mt-5 flex items-center gap-3 text-xs text-muted">
-            <span className="w-10 deco text-[10px]">Zoom</span>
+            <span className="w-10 deco text-[12px]">Zoom</span>
             <input type="range" min={1} max={4} step={0.01} value={a.zoom} onChange={(e) => update({ zoom: +e.target.value })} className="flex-1 accent-amber" />
             <span className="w-10 text-right font-mono">{a.zoom.toFixed(1)}×</span>
           </label>
         ) : (
           <div className="mt-5 flex items-center gap-3 text-xs text-muted">
-            <span className="w-16 deco text-[10px]">Edges</span>
+            <span className="w-16 deco text-[12px]">Edges</span>
             <div className="flex flex-1 rounded-full border border-brass/25 p-1">
               <button type="button" aria-pressed={a.bg === 'blur'} onClick={() => update({ bg: 'blur' })} className={seg(a.bg === 'blur')}>Soft blur</button>
               <button type="button" aria-pressed={a.bg === 'label'} onClick={() => update({ bg: 'label' })} className={seg(a.bg === 'label')}>Label color</button>

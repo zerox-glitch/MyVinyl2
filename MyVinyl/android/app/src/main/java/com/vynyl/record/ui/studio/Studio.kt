@@ -77,7 +77,11 @@ private data class RenderState(val p: Float, val stage: String)
 
 @Composable
 /** [edit]: an existing record opened from the player — the Studio reloads its voice + settings and re-presses it in place. */
-fun Studio(recordCount: Int, onDone: (RecordMeta) -> Unit, edit: RecordMeta? = null, onCancelEdit: () -> Unit = {}) {
+/** [capture]: bumped by the Record tab to jump to the Capture step. [active]: false while another tab covers the Studio. */
+fun Studio(
+    recordCount: Int, onDone: (RecordMeta) -> Unit, onPlay: (RecordMeta) -> Unit, edit: RecordMeta? = null, onCancelEdit: () -> Unit = {},
+    capture: Int = 0, active: Boolean = true,
+) {
     val ent by Pro.entitlement.collectAsState()
     val pro = ent.pro
     val haptic = LocalHapticFeedback.current
@@ -104,6 +108,23 @@ fun Studio(recordCount: Int, onDone: (RecordMeta) -> Unit, edit: RecordMeta? = n
     var withVoice by remember { mutableStateOf(false) }
     val hasVoice = source != null && !isDemo
     var render by remember { mutableStateOf<RenderState?>(null) }
+    /** the record this session last pressed — the Studio stays on it so you can go back and change things */
+    var pressed by remember { mutableStateOf<RecordMeta?>(null) }
+    val live by RecordStore.records.collectAsState()
+    // always the latest copy, so a photo or favourite added in the player isn't lost on re-press
+    val base = pressed?.let { p -> live.firstOrNull { it.id == p.id } ?: p } ?: edit
+    val editsLeft = if (pro) Int.MAX_VALUE else maxOf(0, Free.REEDITS - (base?.reedits ?: 0))
+    LaunchedEffect(capture) { if (capture > 0) { pressed = null; step = 0 } }
+    LaunchedEffect(edit?.id) { if (edit != null) pressed = null }
+    fun reset() { pressed = null; step = 0; source = null; srcName = null; isDemo = false; onCancelEdit() }
+    fun makeChanges() {
+        val p = (if (pressed != null) base else null) ?: run { step = 2; return }
+        if (pro) { step = 2; return }
+        if (editsLeft <= 0) { Pro.openPaywall("Free records can be changed ${Free.REEDITS} times after pressing. Go Pro to change them as often as you like."); return }
+        val next = p.copy(reedits = p.reedits + 1)
+        pressed = next; step = 2
+        scope.launch { RecordStore.update(p.id) { it.copy(reedits = next.reedits) } }
+    }
     LaunchedEffect(edit?.id) {
         val e = edit ?: return@LaunchedEffect
         val v = RecordStore.loadVoice(e.id) ?: return@LaunchedEffect
@@ -130,6 +151,7 @@ fun Studio(recordCount: Int, onDone: (RecordMeta) -> Unit, edit: RecordMeta? = n
         activeLoading && !enginePlaying -> ListenState.Loading
         else -> ListenState.Playing
     }
+    LaunchedEffect(active) { if (!active) stopPreview() }
     LaunchedEffect(enginePlaying) {
         if (enginePlaying) activeLoading = false
         else if (activeKey != null && !activeLoading) activeKey = null
@@ -165,15 +187,15 @@ fun Studio(recordCount: Int, onDone: (RecordMeta) -> Unit, edit: RecordMeta? = n
                 Eyebrow("STUDIO · ${STEPS[step].uppercase()}")
                 ProButton()
             }
-            edit?.let { e ->
+            if (base != null && !(pressed != null && step == 4)) base.let { e ->
                 Row(
                     Modifier.padding(top = 12.dp).fillMaxWidth().clip(CircleShape).border(1.dp, V.amber.copy(alpha = 0.4f), CircleShape).background(V.amber.copy(alpha = 0.1f))
                         .padding(start = 12.dp, end = 4.dp, top = 2.dp, bottom = 2.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text("Re-pressing “${e.title}”", style = sansStyle(11, V.cream.copy(alpha = 0.85f)), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                    Text("Cancel", style = sansStyle(11, V.muted), modifier = Modifier.clip(CircleShape)
-                        .clickable(enabled = render == null) { step = 0; source = null; onCancelEdit() }.padding(horizontal = 12.dp, vertical = 8.dp))
+                    Text("Changing “${e.title}”", style = sansStyle(12, V.cream.copy(alpha = 0.85f)), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                    Text("New record", style = sansStyle(12, V.muted), modifier = Modifier.clip(CircleShape)
+                        .clickable(enabled = render == null) { reset() }.padding(horizontal = 12.dp, vertical = 10.dp))
                 }
             }
             Row(Modifier.padding(top = 12.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -385,7 +407,7 @@ fun Studio(recordCount: Int, onDone: (RecordMeta) -> Unit, edit: RecordMeta? = n
                             Text("VR", style = displayStyle(12, Color(style.ink)))
                         }
                     }
-                    Text(if (r != null) "Pressing your record" else "Ready to press.", style = displayStyle(30), modifier = Modifier.padding(top = 32.dp))
+                    Text(if (r != null) "Pressing your record" else if (pressed != null) "Pressed! It’s on your shelf." else "Ready to press.", style = displayStyle(30), textAlign = TextAlign.Center, modifier = Modifier.padding(top = 32.dp))
                     Text(
                         r?.stage ?: "${com.vynyl.record.audio.preset(presetId).name} · ${com.vynyl.record.audio.crackle(crackleId).name} · ${MUSIC.firstOrNull { it.id == music }?.name ?: ""} · ${style.name}. Every crackle is computed on this device.",
                         style = sansStyle(14, V.muted), textAlign = TextAlign.Center, modifier = Modifier.padding(top = 8.dp),
@@ -397,26 +419,41 @@ fun Studio(recordCount: Int, onDone: (RecordMeta) -> Unit, edit: RecordMeta? = n
                         }
                         Text("${(r.p * 100).roundToInt()}%", style = monoStyle(12), modifier = Modifier.padding(top = 8.dp))
                     }
+                    val done = pressed
+                    if (done != null && r == null) Column(Modifier.padding(top = 28.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Box(Modifier.fillMaxWidth().height(56.dp).clip(CircleShape).background(Brush.verticalGradient(listOf(V.gold1, V.gold2, V.gold3))).clickable { onPlay(done) },
+                            contentAlignment = Alignment.Center) { Text("▶ PLAY MY RECORD", style = decoStyle(14, V.obsidian)) }
+                        Row(Modifier.fillMaxWidth().height(56.dp).clip(CircleShape).border(1.dp, V.amber.copy(alpha = 0.5f), CircleShape).clickable { makeChanges() },
+                            horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                            Text("Go back and make changes", style = sansStyle(16))
+                            if (!pro) { if (editsLeft > 0) Text(" · $editsLeft free left", style = sansStyle(14, V.amberBright)) else { Spacer(Modifier.width(8.dp)); ProBadge() } }
+                        }
+                        Text("Start a new record", style = sansStyle(16, V.muted), textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth().clip(CircleShape).clickable { reset() }.padding(vertical = 14.dp))
+                    }
                 }
             }
         }
         // footer
         Box(Modifier.fillMaxWidth().height(1.dp).background(V.brass.copy(alpha = 0.15f)))
         Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-            Btn("Back", { step -= 1 }, variant = BtnVariant.Quiet, enabled = step != 0 && render == null)
-            if (step < 4) {
+            Btn("Back", { if (pressed != null && step == 4) makeChanges() else step -= 1 }, variant = BtnVariant.Quiet, enabled = step != 0 && render == null)
+            val done = pressed
+            if (done != null && step == 4) {
+                Btn("Play", { onPlay(done) })
+            } else if (step < 4) {
                 Btn("Continue", { step += 1 }, enabled = !(step == 0 && source == null))
             } else {
                 Btn("Press record", enabled = render == null && source != null, onClick = press@{
-                    if (edit == null && !pro && recordCount >= Free.MAX_RECORDS) {
+                    if (base == null && !pro && recordCount >= Free.MAX_RECORDS) {
                         Pro.openPaywall("Your free shelf holds ${Free.MAX_RECORDS} records and it’s full. Go Pro for unlimited records."); return@press
                     }
                     if (locked(Gate.Preset, presetId) || locked(Gate.Crackle, crackleId) || locked(Gate.Music, music) || locked(Gate.Style, styleId)) {
                         Pro.openPaywall("This record uses Pro sounds or wax. Go Pro to press it, or pick free options."); return@press
                     }
                     val src = source ?: return@press
-                    val id = edit?.id ?: UUID.randomUUID().toString()
-                    val prev = edit; val mood = moodId
+                    val id = base?.id ?: UUID.randomUUID().toString()
+                    val prev = base; val mood = moodId
                     val m = meta
                     val pId = presetId; val cId = crackleId; val mus = music; val sId = styleId
                     val ml = musicLevel; val cl = crackleLevel; val ch = character; val vol = volume
@@ -445,7 +482,7 @@ fun Studio(recordCount: Int, onDone: (RecordMeta) -> Unit, edit: RecordMeta? = n
                         RecordStore.saveVoice(id, src)
                         RecordStore.put(rec, master)
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        render = null; step = 0; source = null; srcName = null; isDemo = false
+                        render = null; pressed = rec
                         onDone(rec)
                     }
                 })
