@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react'
-import { SR, encodeWav } from './dsp'
+import { SR, encodeWav, needleDropClip } from './dsp'
 import { MOODS } from './presets'
 
 /**
@@ -93,6 +93,16 @@ export const billing = {
   signOutDemo() { try { localStorage.removeItem(KEY) } catch { /* ignore */ } ent = { pro: false }; emit() },
 }
 
+/** Mixes the needle-drop over the start of a master, so exports open with the same landing heard live. */
+export async function withNeedleDrop(master: Blob): Promise<Blob> {
+  const d = new DataView(await master.arrayBuffer()), n = (d.byteLength - 44) / 4
+  const l = new Float32Array(n), r = new Float32Array(n), [dl, dr] = needleDropClip()
+  for (let i = 0; i < n; i++) {
+    l[i] = d.getInt16(44 + i * 4, true) / 32768 + (dl[i] ?? 0); r[i] = d.getInt16(46 + i * 4, true) / 32768 + (dr[i] ?? 0)
+  }
+  return encodeWav(l, r)
+}
+
 /** Free exports get a soft music-box "Vynyl" tag appended. Masters are 16-bit stereo WAVs from encodeWav. */
 export async function watermarkWav(master: Blob): Promise<Blob> {
   const d = new DataView(await master.arrayBuffer()), n = (d.byteLength - 44) / 4
@@ -119,9 +129,9 @@ export const videoTier = (pro: boolean): VideoTier =>
 
 /** Soundtrack for a video export: the full master for Pro; the first 30 s faded out, plus the chime, for free. */
 export async function videoAudio(master: Blob, tier: VideoTier): Promise<Blob> {
-  let wav = master
+  let wav = await withNeedleDrop(master)
   if (tier.maxSeconds) {
-    const buf = await master.arrayBuffer(), n = (buf.byteLength - 44) / 4, keep = Math.min(n, Math.floor(tier.maxSeconds * SR))
+    const buf = await wav.arrayBuffer(), n = (buf.byteLength - 44) / 4, keep = Math.min(n, Math.floor(tier.maxSeconds * SR))
     if (keep < n) {
       const d = new DataView(buf), fade = Math.min(keep, Math.floor(SR * 1.5))
       const l = new Float32Array(keep), r = new Float32Array(keep)

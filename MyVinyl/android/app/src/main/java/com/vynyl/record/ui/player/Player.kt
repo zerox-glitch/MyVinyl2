@@ -106,6 +106,7 @@ import com.vynyl.record.audio.STYLES
 import com.vynyl.record.audio.WavPlayer
 import com.vynyl.record.audio.preset
 import com.vynyl.record.audio.watermarkWav
+import com.vynyl.record.audio.withNeedleDrop
 import com.vynyl.record.data.PhotoAdjust
 import com.vynyl.record.export.VideoRequest
 import com.vynyl.record.export.VideoTier
@@ -298,7 +299,7 @@ fun Player(record: RecordMeta, onClose: () -> Unit, onEdit: (RecordMeta) -> Unit
             try {
                 val file = withContext(Dispatchers.IO) {
                     val master = RecordStore.masterFile(record.id).readBytes()
-                    val bytes = if (pro) master else watermarkWav(master)
+                    val bytes = withNeedleDrop(master).let { if (pro) it else watermarkWav(it) }
                     val dir = File(ctx.cacheDir, "exports").apply { mkdirs() }
                     File(dir, "${safeName(record.title)}.wav").apply { writeBytes(bytes) }
                 }

@@ -28,6 +28,7 @@ import android.view.Surface
 import com.vynyl.record.audio.SR
 import com.vynyl.record.audio.VinylStyle
 import com.vynyl.record.audio.watermarkWav
+import com.vynyl.record.audio.withNeedleDrop
 import com.vynyl.record.turntable.LabelInfo
 import com.vynyl.record.turntable.TexFonts
 import com.vynyl.record.turntable.TurntableRenderer
@@ -207,7 +208,7 @@ fun saveToGallery(ctx: Context, file: File, displayName: String): Uri? {
 
 /** 16-bit stereo PCM (little endian) for the export: full master for Pro; first 30 s, faded, plus chime for free. */
 private fun loadPcm(master: File, tier: VideoTier): ByteBuffer {
-    var wav = master.readBytes()
+    var wav = withNeedleDrop(master.readBytes())
     tier.maxSeconds?.let { cap ->
         val n = (wav.size - 44) / 4
         val keep = min(n, (cap * SR).toInt())
@@ -375,7 +376,7 @@ private const val QUAD_VS = """#version 300 es
 out vec2 vUv;
 void main() {
   vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2));
-  vUv = vec2(p.x * 0.5, 1.0 - p.y * 0.5);
+  vUv = vec2(p.x, 1.0 - p.y);
   gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0);
 }"""
 private const val QUAD_FS = """#version 300 es

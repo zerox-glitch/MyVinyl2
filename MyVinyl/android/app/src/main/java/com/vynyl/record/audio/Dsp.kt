@@ -325,6 +325,14 @@ fun waveform(data: FloatArray, bars: Int = 72): List<Float> {
     return out.map { it / mx }
 }
 
+/** Mixes the needle-drop over the start of a 16-bit stereo WAV, so exports open with the same landing heard live. */
+fun withNeedleDrop(wav: ByteArray): ByteArray {
+    val out = wav.copyOf(); val d = ByteBuffer.wrap(out).order(ByteOrder.LITTLE_ENDIAN)
+    val drop = needleDropPcm(); val n = min((out.size - 44) / 2, drop.size)
+    for (i in 0 until n) d.putShort(44 + i * 2, (d.getShort(44 + i * 2) + drop[i]).coerceIn(-32768, 32767).toShort())
+    return out
+}
+
 /** Free exports get a soft music-box "Vynyl" tag appended. Input/output are 16-bit stereo WAVs from encodeWav. */
 fun watermarkWav(wav: ByteArray): ByteArray {
     val d = ByteBuffer.wrap(wav).order(ByteOrder.LITTLE_ENDIAN)

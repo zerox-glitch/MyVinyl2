@@ -4,7 +4,7 @@ import PhotoAdjust, { DEFAULT_ADJUST, drawAdjusted } from '../components/PhotoAd
 import { ProBadge } from '../components/Paywall'
 import VideoExport from '../components/VideoExport'
 import NameplatePreview from '../components/NameplatePreview'
-import { FREE, FREE_VIDEO_SECONDS, isFree, openPaywall, usePro, watermarkWav } from '../lib/pro'
+import { FREE, FREE_VIDEO_SECONDS, isFree, openPaywall, usePro, watermarkWav, withNeedleDrop } from '../lib/pro'
 import { Wave, fmt } from '../components/ui'
 import { playNeedleDrop } from '../lib/dsp'
 import { PRESETS, STYLES } from '../lib/presets'
@@ -97,7 +97,7 @@ export default function Player({ record, onClose, onEdit }: { record: StoredReco
     const name = `${record.title}.wav`
     setExporting(true)
     try {
-      const blob = pro ? record.master : await watermarkWav(record.master), href = URL.createObjectURL(blob)
+      const dropped = await withNeedleDrop(record.master), blob = pro ? dropped : await watermarkWav(dropped), href = URL.createObjectURL(blob)
       const a = document.createElement('a'); a.href = href; a.download = name; a.click()
       setTimeout(() => URL.revokeObjectURL(href), 4000)
     } finally { setExporting(false) }
