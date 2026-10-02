@@ -1,0 +1,11 @@
+{
+  "title": "Vynyl Record",
+  "description": "Capture, edit, and preserve voice memories as vinyl records using this offline Android app, offering a unique audio experience without internet reliance.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
