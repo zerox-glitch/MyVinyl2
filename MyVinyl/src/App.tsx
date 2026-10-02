@@ -4,6 +4,7 @@ import Vault from './screens/Vault'
 import Player from './screens/Player'
 import Paywall from './components/Paywall'
 import Splash from './components/Splash'
+import Onboarding from './components/Onboarding'
 import Logo from './components/Logo'
 import { db, type StoredRecord } from './lib/db'
 
@@ -44,6 +45,7 @@ export default function App() {
               </button>
             ))}
           </nav>
+          <Onboarding />
           <Splash />
           <div className="hidden h-5 shrink-0 items-center justify-center bg-stone sm:flex" aria-hidden><span className="h-1 w-28 rounded-full bg-cream/50" /></div>
         </div>

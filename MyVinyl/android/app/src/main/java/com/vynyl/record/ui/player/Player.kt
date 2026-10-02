@@ -1,5 +1,6 @@
 package com.vynyl.record.ui.player
 
+import com.vynyl.record.ui.components.NameplatePreview
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
@@ -178,6 +179,7 @@ fun Player(record: RecordMeta, onClose: () -> Unit) {
 
     var exporting by remember { mutableStateOf(false) }
     var video by remember { mutableStateOf<VideoJob?>(null) }
+    var platePreview by remember { mutableStateOf(false) }
     var engaged by remember { mutableStateOf(false) }
     var contact by remember { mutableStateOf(false) }
     var reset by remember { mutableIntStateOf(0) }
@@ -440,7 +442,7 @@ fun Player(record: RecordMeta, onClose: () -> Unit) {
                     if (!pro) {
                         Row(
                             Modifier.padding(top = 8.dp).clip(CircleShape).border(1.dp, V.amber.copy(alpha = 0.4f), CircleShape).background(V.amber.copy(alpha = 0.1f))
-                                .clickable { Pro.openPaywall("Engrave their names in glowing gold on the turntable plinth with Vynyl Pro.") }
+                                .clickable { platePreview = true }
                                 .padding(start = 6.dp, end = 12.dp, top = 4.dp, bottom = 4.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) { ProBadge(); Spacer(Modifier.width(8.dp)); Text("Gold nameplate on the plinth", style = sansStyle(11, V.cream.copy(alpha = 0.85f))) }
@@ -594,6 +596,8 @@ fun Player(record: RecordMeta, onClose: () -> Unit) {
                 onUpgrade = { video = null; Pro.openPaywall("Export full-length, 1080p turntable videos without the watermark with Vynyl Pro.") },
             )
         }
+
+        if (platePreview) NameplatePreview(record.sender, record.recipient) { platePreview = false }
 
         editing?.let { ed ->
             PhotoAdjustDialog(

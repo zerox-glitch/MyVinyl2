@@ -30,7 +30,7 @@ private const val CENTER_Z = 0f
 private const val ARM_L = 2.2f
 private const val R_LEAD_IN = 1.19f
 private const val R_LEAD_OUT = 0.5f
-private const val R_REST = 1.62f
+private const val R_REST = 1.85f
 private val DIST = hypot(CENTER_X - PIVOT_X, CENTER_Z - PIVOT_Z)
 private val PHI0 = atan2(CENTER_Z - PIVOT_Z, CENTER_X - PIVOT_X)
 /** Stylus heading from pivot for a groove of radius r (law of cosines). */

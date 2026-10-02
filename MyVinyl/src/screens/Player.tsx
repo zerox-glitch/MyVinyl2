@@ -3,6 +3,7 @@ import Turntable from '../components/Turntable'
 import PhotoAdjust, { DEFAULT_ADJUST, drawAdjusted } from '../components/PhotoAdjust'
 import { ProBadge } from '../components/Paywall'
 import VideoExport from '../components/VideoExport'
+import NameplatePreview from '../components/NameplatePreview'
 import { FREE_VIDEO_SECONDS, isFree, openPaywall, usePro, watermarkWav } from '../lib/pro'
 import { Wave, fmt } from '../components/ui'
 import { PRESETS, STYLES } from '../lib/presets'
@@ -19,6 +20,7 @@ export default function Player({ record, onClose }: { record: StoredRecord; onCl
   const pro = usePro().pro
   const [exporting, setExporting] = useState(false)
   const [video, setVideo] = useState(false)
+  const [platePreview, setPlatePreview] = useState(false)
   const [engaged, setEngaged] = useState(false)
   const [contact, setContact] = useState(false)
   const [t, setT] = useState(0)
@@ -126,7 +128,7 @@ export default function Player({ record, onClose }: { record: StoredRecord; onCl
           <p className="deco text-[10px] text-amber-bright">{record.occasion} · {record.date}</p>
           <h1 className="mt-1 font-display text-3xl leading-tight">{record.title}</h1>
           <p className="text-sm text-muted">for {record.recipient} · from {record.sender}</p>
-          {!pro && <button type="button" onClick={() => openPaywall('Engrave their names in glowing gold on the turntable plinth with Vynyl Pro.')} className="mt-2 inline-flex items-center gap-2 rounded-full border border-amber/40 bg-amber/10 py-1 pl-1.5 pr-3 text-[11px] text-cream/85 transition hover:border-amber-bright"><ProBadge />Gold nameplate on the plinth</button>}
+          {!pro && <button type="button" onClick={() => setPlatePreview(true)} className="mt-2 inline-flex items-center gap-2 rounded-full border border-amber/40 bg-amber/10 py-1 pl-1.5 pr-3 text-[11px] text-cream/85 transition hover:border-amber-bright"><ProBadge />Gold nameplate on the plinth</button>}
 
           <div className="mt-4 h-10 cursor-pointer" onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); seek(((e.clientX - r.left) / r.width) * dur) }}>
             <Wave data={record.wave} progress={progress} className="h-full" />
@@ -182,6 +184,7 @@ export default function Player({ record, onClose }: { record: StoredRecord; onCl
           <p className="mt-2 text-center text-[11px] text-muted">{pro ? 'Video · 1080p · full length, clean' : <>Free: first {FREE_VIDEO_SECONDS} s at 720p with a Vynyl watermark. <button type="button" onClick={() => openPaywall('Export full-length, 1080p turntable videos without the watermark with Vynyl Pro.')} className="text-amber-bright underline underline-offset-2">Go full length</button></>}</p>
         </div>
       )}
+      {platePreview && <NameplatePreview from={record.sender} to={record.recipient} onClose={() => setPlatePreview(false)} />}
       {video && <VideoExport record={record} style={style} labelPhoto={labelPhoto} pro={pro} onClose={() => setVideo(false)} />}
       {editing && <PhotoAdjust source={editing.source} initial={editing.initial} labelColor={style.label} busy={photoBusy}
         onCancel={() => setEditing(null)} onSave={(photo, next) => void savePhoto(photo, editing.source, next)} />}

@@ -23,7 +23,7 @@ type Props = {
 
 // Tonearm geometry (world units, xz-plane). Pivot P, platter centre C, effective length L (pivot → stylus).
 const PIVOT = { x: 1.35, z: -1.0 }, CENTER = { x: -0.45, z: 0 }, ARM_L = 2.2
-const R_LEAD_IN = 1.19, R_LEAD_OUT = 0.5, R_REST = 1.62
+const R_LEAD_IN = 1.19, R_LEAD_OUT = 0.5, R_REST = 1.85
 const DIST = Math.hypot(CENTER.x - PIVOT.x, CENTER.z - PIVOT.z)
 const PHI0 = Math.atan2(CENTER.z - PIVOT.z, CENTER.x - PIVOT.x)
 /** Stylus heading from pivot for a groove of radius r: intersection of circle(P, L) and circle(C, r) via law of cosines. */
