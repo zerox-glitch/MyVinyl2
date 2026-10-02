@@ -452,9 +452,9 @@ private fun rule(c: Canvas, w: Int, y: Float, u: Float) =
 private fun introBitmap(fonts: TexFonts, w: Int, h: Int, title: String, from: String, to: String): Bitmap {
     val (b, c) = stageBitmap(w, h); val u = w / 1080f; val max = w - 160 * u
     val p = Paint(Paint.ANTI_ALIAS_FLAG)
-    p.typeface = fonts.shoulders; p.textSize = 26 * u; p.color = 0xD9FBBF24.toInt(); p.letterSpacing = 0.3f
+    p.typeface = fonts.hanken; p.setFontVariationSettings("'wght' 700"); p.textSize = 26 * u; p.color = 0xE6FBBF24.toInt(); p.letterSpacing = 0.3f
     centered(c, p, "A RECORD PRESSED", w, h * 0.30f, max)
-    p.letterSpacing = 0f
+    p.letterSpacing = 0f; p.setFontVariationSettings(null)
     val small = Paint(p).apply { typeface = Typeface.create(fonts.gloock, Typeface.ITALIC); textSize = 34 * u; color = 0xA6FEF3C7.toInt() }
     val name = Paint(p).apply { typeface = fonts.gloock; textSize = 58 * u; color = 0xFFFEF3C7.toInt() }
     centered(c, small, "from", w, h * 0.38f, max); centered(c, name, from, w, h * 0.44f, max)
@@ -465,18 +465,38 @@ private fun introBitmap(fonts: TexFonts, w: Int, h: Int, title: String, from: St
     return b
 }
 
-/** Free-tier closing card with the app watermark. */
+/** The app mark (same as public/icon.svg): amber tile, record with a V-notch cut from rim to label. */
+private fun drawMark(c: Canvas, cx: Float, cy: Float, sz: Float) {
+    val k = sz / 120f
+    c.save(); c.translate(cx - sz / 2, cy - sz / 2); c.scale(k, k)
+    val p = Paint(Paint.ANTI_ALIAS_FLAG)
+    p.color = 0xFFD97706.toInt(); p.setShadowLayer(20f, 0f, 0f, 0x73D97706)
+    c.drawRoundRect(0f, 0f, 120f, 120f, 27f, 27f, p); p.clearShadowLayer()
+    c.save()
+    c.clipOutPath(android.graphics.Path().apply { moveTo(41f, 10f); lineTo(60f, 47f); lineTo(79f, 10f); close() })
+    p.color = 0xFF14100D.toInt(); c.drawCircle(60f, 62f, 45f, p)
+    p.style = Paint.Style.STROKE; p.strokeWidth = 1.6f
+    p.color = 0x29F5E9D3; c.drawCircle(60f, 62f, 36f, p)
+    p.color = 0x1AF5E9D3; c.drawCircle(60f, 62f, 27f, p)
+    p.style = Paint.Style.FILL
+    c.restore()
+    p.color = 0xFFF5E9D3.toInt(); c.drawCircle(60f, 62f, 14f, p)
+    p.color = 0xFF14100D.toInt(); c.drawCircle(60f, 62f, 2.6f, p)
+    c.restore()
+}
+
+/** Free-tier closing card: the app mark and wordmark. */
 private fun outroBitmap(fonts: TexFonts, w: Int, h: Int): Bitmap {
     val (b, c) = stageBitmap(w, h); val u = w / 1080f; val max = w - 160 * u
+    drawMark(c, w / 2f, h * 0.36f, 190 * u)
     val p = Paint(Paint.ANTI_ALIAS_FLAG)
-    p.typeface = Typeface.create(fonts.gloock, Typeface.ITALIC); p.textSize = 36 * u; p.color = 0x99FEF3C7.toInt()
-    centered(c, p, "made with", w, h * 0.42f, max)
-    p.typeface = Typeface.create(fonts.shoulders, Typeface.BOLD); p.textSize = 150 * u; p.color = 0xFFFBBF24.toInt(); p.letterSpacing = 0.16f
-    centered(c, p, "VYNYL", w, h * 0.56f, max)
-    p.letterSpacing = 0f
-    rule(c, w, h * 0.61f, u)
-    p.typeface = fonts.hanken; p.textSize = 28 * u; p.color = 0xB3FEF3C7.toInt()
-    centered(c, p, "Press your own record", w, h * 0.67f, max)
+    p.typeface = Typeface.create(fonts.gloock, Typeface.ITALIC); p.textSize = 32 * u; p.color = 0x99FEF3C7.toInt()
+    centered(c, p, "made with", w, h * 0.53f, max)
+    p.typeface = fonts.gloock; p.textSize = 124 * u; p.color = 0xFFFBBF24.toInt(); p.letterSpacing = 0.08f
+    centered(c, p, "Vynyl", w, h * 0.64f, max)
+    rule(c, w, h * 0.685f, u)
+    p.typeface = fonts.hanken; p.setFontVariationSettings("'wght' 700"); p.textSize = 22 * u; p.color = 0xBFFEF3C7.toInt(); p.letterSpacing = 0.28f
+    centered(c, p, "PRESS YOUR OWN RECORD", w, h * 0.735f, max)
     return b
 }
 

@@ -19,6 +19,23 @@ function pickMime() {
   return opts.find((m) => typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(m)) ?? ''
 }
 
+/** The app mark (same as public/icon.svg): amber tile, record with a V-notch cut from rim to label. */
+function mark(x: CanvasRenderingContext2D, cx: number, cy: number, sz: number) {
+  const k = sz / 120
+  x.save(); x.translate(cx - sz / 2, cy - sz / 2); x.scale(k, k)
+  x.shadowColor = 'rgba(217,119,6,.45)'; x.shadowBlur = 40
+  x.fillStyle = '#d97706'; x.beginPath(); x.roundRect(0, 0, 120, 120, 27); x.fill(); x.shadowBlur = 0
+  x.save(); x.beginPath(); x.rect(0, 0, 120, 120); x.moveTo(41, 10); x.lineTo(79, 10); x.lineTo(60, 47); x.closePath(); x.clip('evenodd')
+  x.fillStyle = '#14100d'; x.beginPath(); x.arc(60, 62, 45, 0, Math.PI * 2); x.fill()
+  x.lineWidth = 1.6
+  x.strokeStyle = 'rgba(245,233,211,.16)'; x.beginPath(); x.arc(60, 62, 36, 0, Math.PI * 2); x.stroke()
+  x.strokeStyle = 'rgba(245,233,211,.1)'; x.beginPath(); x.arc(60, 62, 27, 0, Math.PI * 2); x.stroke()
+  x.restore()
+  x.fillStyle = '#f5e9d3'; x.beginPath(); x.arc(60, 62, 14, 0, Math.PI * 2); x.fill()
+  x.fillStyle = '#14100d'; x.beginPath(); x.arc(60, 62, 2.6, 0, Math.PI * 2); x.fill()
+  x.restore()
+}
+
 /** Warm stage behind the deck — same glows as the Player — plus the intro card and the free-tier outro card. */
 function stageLayers(size: number, title: string, from: string, to: string, watermark: boolean) {
   const u = size / 1080
@@ -40,7 +57,7 @@ function stageLayers(size: number, title: string, from: string, to: string, wate
 
   // intro: sender → receiver, then the title
   const ix = card(), mid = size / 2
-  ix.fillStyle = 'rgba(251,191,36,.85)'; ix.font = `600 ${26 * u}px "Big Shoulders Display", sans-serif`; ls(ix, 8)
+  ix.fillStyle = 'rgba(251,191,36,.9)'; ix.font = `700 ${26 * u}px "Hanken Grotesk", sans-serif`; ls(ix, 8)
   ix.fillText('A RECORD PRESSED', mid, size * 0.3)
   ls(ix, 0); ix.fillStyle = 'rgba(254,243,199,.65)'; ix.font = `italic ${34 * u}px Gloock, serif`; ix.fillText('from', mid, size * 0.38)
   ix.fillStyle = '#fef3c7'; ix.font = `${58 * u}px Gloock, serif`; ix.fillText(fit(ix, from, size - 160 * u), mid, size * 0.44)
@@ -53,10 +70,11 @@ function stageLayers(size: number, title: string, from: string, to: string, wate
   let outro: HTMLCanvasElement | null = null
   if (watermark) {
     const ox = card()
-    ox.fillStyle = 'rgba(254,243,199,.6)'; ox.font = `italic ${36 * u}px Gloock, serif`; ox.fillText('made with', mid, size * 0.42)
-    ox.fillStyle = '#fbbf24'; ox.font = `700 ${150 * u}px "Big Shoulders Display", sans-serif`; ls(ox, 24); ox.fillText('VYNYL', mid + 12 * u, size * 0.56)
-    ls(ox, 0); rule(ox, size * 0.61)
-    ox.fillStyle = 'rgba(254,243,199,.7)'; ox.font = `${28 * u}px "Hanken Grotesk", sans-serif`; ox.fillText('Press your own record', mid, size * 0.67)
+    mark(ox, mid, size * 0.36, 190 * u)
+    ox.fillStyle = 'rgba(254,243,199,.6)'; ox.font = `italic ${32 * u}px Gloock, serif`; ox.fillText('made with', mid, size * 0.53)
+    ox.fillStyle = '#fbbf24'; ox.font = `${124 * u}px Gloock, serif`; ls(ox, 10); ox.fillText('Vynyl', mid + 5 * u, size * 0.64)
+    ls(ox, 0); rule(ox, size * 0.685)
+    ox.fillStyle = 'rgba(254,243,199,.75)'; ox.font = `700 ${22 * u}px "Hanken Grotesk", sans-serif`; ls(ox, 6); ox.fillText('PRESS YOUR OWN RECORD', mid + 3 * u, size * 0.735); ls(ox, 0)
     outro = ox.canvas
   }
   return { bg, intro: ix.canvas, outro }
