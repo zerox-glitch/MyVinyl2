@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,6 +35,8 @@ fun VynylApp() {
     var guide by rememberSaveable { mutableStateOf(false) }
     var capture by remember { mutableIntStateOf(0) }
     var studioStep by remember { mutableIntStateOf(0) }
+    var reuse by remember { mutableStateOf<com.vynyl.record.ui.studio.ReuseVoice?>(null) }
+    val appScope = rememberCoroutineScope()
     val records by RecordStore.records.collectAsState()
     var playingId by rememberSaveable { mutableStateOf<String?>(null) }
     var editingId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -55,10 +58,12 @@ fun VynylApp() {
             // the Studio stays composed so a half-made record survives a trip to the vault
             Studio(
                 recordCount = records.size, edit = editing, onCancelEdit = { editingId = null }, onDone = {}, onPlay = { r -> playingId = r.id },
-                capture = capture, active = tab == "studio" && playing == null && !guide, onStep = { studioStep = it },
+                capture = capture, active = tab == "studio" && playing == null && !guide, onStep = { studioStep = it }, reuse = reuse,
             )
             if (tab == "vault") Box(Modifier.fillMaxSize().background(V.obsidian).clickable(remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, null) {}) {
-                Vault(records = records, onPlay = { playingId = it.id }, onNew = { tab = "studio"; capture++ })
+                Vault(records = records, onPlay = { playingId = it.id }, onNew = { tab = "studio"; capture++ }, onUseVoice = { v ->
+                    appScope.launch { com.vynyl.record.data.VoiceStore.load(v.id)?.let { reuse = com.vynyl.record.ui.studio.ReuseVoice(it, v.name, System.nanoTime()); tab = "studio" } }
+                })
             }
             playing?.let { Player(record = it, onClose = { playingId = null }, onEdit = { r -> playingId = null; editingId = r.id; tab = "studio" }) }
         }

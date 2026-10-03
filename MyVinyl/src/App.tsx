@@ -7,7 +7,7 @@ import Splash from './components/Splash'
 import Onboarding from './components/Onboarding'
 import Guide from './components/Guide'
 import Logo from './components/Logo'
-import { db, type StoredRecord } from './lib/db'
+import { db, voices as voiceDb, type SavedVoice, type StoredRecord } from './lib/db'
 
 export default function App() {
   const [tab, setTab] = useState<'studio' | 'vault'>('studio')
@@ -19,6 +19,11 @@ export default function App() {
   const [editing, setEditing] = useState<StoredRecord | null>(null)
   const refresh = useCallback(() => { db.all().then(setRecords) }, [])
   useEffect(refresh, [refresh])
+  const [voices, setVoices] = useState<SavedVoice[]>([])
+  const refreshVoices = useCallback(() => { voiceDb.all().then(setVoices) }, [])
+  useEffect(refreshVoices, [refreshVoices])
+  const [reuse, setReuse] = useState<{ pcm: Float32Array; name: string; n: number } | null>(null)
+  const useVoice = async (v: SavedVoice) => { setReuse({ pcm: new Float32Array(await v.pcm.arrayBuffer()), name: v.name, n: Date.now() }); setTab('studio') }
 
   return (
     <div className="grain relative min-h-[100dvh] overflow-hidden" style={{ background: 'radial-gradient(60% 50% at 20% 20%, rgba(217,119,6,.18), transparent 70%), radial-gradient(50% 50% at 85% 80%, rgba(153,27,27,.2), transparent 70%), #0c0a09' }}>
@@ -40,8 +45,8 @@ export default function App() {
           </div>
           <main className="relative min-h-0 flex-1">
             {/* the Studio stays mounted so a half-made record survives a trip to the vault */}
-            <div className={tab === 'studio' ? 'h-full' : 'hidden'}><Studio recordCount={records.length} edit={editing} capture={capture} active={tab === 'studio' && !playing && !guide} onStep={setStudioStep} onCancelEdit={() => setEditing(null)} onDone={() => refresh()} onPlay={setPlaying} /></div>
-            {tab === 'vault' && <Vault records={records} refresh={refresh} onPlay={setPlaying} onNew={() => { setTab('studio'); setCapture((n) => n + 1) }} />}
+            <div className={tab === 'studio' ? 'h-full' : 'hidden'}><Studio recordCount={records.length} edit={editing} capture={capture} active={tab === 'studio' && !playing && !guide} onStep={setStudioStep} reuse={reuse} onVoiceSaved={refreshVoices} onCancelEdit={() => setEditing(null)} onDone={() => refresh()} onPlay={setPlaying} /></div>
+            {tab === 'vault' && <Vault records={records} refresh={refresh} onPlay={setPlaying} onNew={() => { setTab('studio'); setCapture((n) => n + 1) }} voices={voices} refreshVoices={refreshVoices} onUseVoice={(v) => void useVoice(v)} />}
             {playing && <Player record={playing} onClose={() => { setPlaying(null); refresh() }} onEdit={(r) => { setPlaying(null); setEditing(r); setTab('studio'); refresh() }} />}
             {guide && <Guide onClose={() => setGuide(false)} />}
             <Paywall />

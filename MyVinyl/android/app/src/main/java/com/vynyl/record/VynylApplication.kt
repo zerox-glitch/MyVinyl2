@@ -8,6 +8,7 @@ class VynylApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         RecordStore.init(this)
+        com.vynyl.record.data.VoiceStore.init(this)
         Pro.init(this)
     }
 }

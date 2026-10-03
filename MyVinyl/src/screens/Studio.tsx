@@ -3,7 +3,7 @@ import { Btn, Eyebrow, Meter, Wave, fmt } from '../components/ui'
 import { CRACKLES, MOODS, OCCASIONS, PRESETS, STYLES } from '../lib/presets'
 import { MUSIC, musicBed } from '../lib/music'
 import { SR, decodeToMono, demoSources, demoVoice, encodeWav, renderMaster, waveform } from '../lib/dsp'
-import { db, type StoredRecord, type StudioSettings } from '../lib/db'
+import { db, voices, type StoredRecord, type StudioSettings } from '../lib/db'
 import Turntable from '../components/Turntable'
 import { ProBadge, ProButton } from '../components/Paywall'
 import { FREE, PRO_SECONDS, isFree, openPaywall, usePro, type Gate } from '../lib/pro'
@@ -11,8 +11,9 @@ import { FREE, PRO_SECONDS, isFree, openPaywall, usePro, type Gate } from '../li
 const STEPS = ['Capture', 'Dedication', 'Character', 'Appearance', 'Press']
 
 /** `edit`: an existing record opened from the player — the Studio reloads its voice + settings and re-presses it in place. */
+/** `reuse`: a voice picked from the vault's library — loaded into Capture as the start of a new record. */
 /** `capture`: bumped by the Record tab to jump straight to the Capture step without losing anything else. */
-export default function Studio({ onDone, onPlay, recordCount, edit, onCancelEdit, capture = 0, active = true, onStep }: { onDone: (r: StoredRecord) => void; onPlay: (r: StoredRecord) => void; recordCount: number; edit?: StoredRecord | null; onCancelEdit?: () => void; capture?: number; active?: boolean; onStep?: (step: number) => void }) {
+export default function Studio({ onDone, onPlay, recordCount, edit, onCancelEdit, capture = 0, active = true, onStep, reuse, onVoiceSaved }: { reuse?: { pcm: Float32Array; name: string; n: number } | null; onVoiceSaved?: () => void; onDone: (r: StoredRecord) => void; onPlay: (r: StoredRecord) => void; recordCount: number; edit?: StoredRecord | null; onCancelEdit?: () => void; capture?: number; active?: boolean; onStep?: (step: number) => void }) {
   const pro = usePro().pro
   const locked = (kind: Gate, id: string) => !pro && !isFree(kind, id)
   const gate = (kind: Gate, id: string, name: string, fn: () => void) => (locked(kind, id) ? openPaywall(`${name} is part of Vynyl Pro. Unlock it — and every other sound — below.`) : fn())
@@ -20,11 +21,13 @@ export default function Studio({ onDone, onPlay, recordCount, edit, onCancelEdit
   useEffect(() => { onStep?.(step) }, [step])
   /** the record this session last pressed — the Studio stays on it so you can go back and change things */
   const [pressed, setPressed] = useState<StoredRecord | null>(null)
+  /** true right after pressing; cleared by "make changes" so the Press step offers a fresh press */
+  const [done, setDone] = useState(false)
   const base = pressed ?? edit ?? null
   const editsLeft = pro ? Infinity : Math.max(0, FREE.reedits - (base?.reedits ?? 0))
-  useEffect(() => { if (capture) { setPressed(null); setStep(0) } }, [capture])
-  useEffect(() => { setPressed(null) }, [edit])
-  const reset = () => { setPressed(null); setStep(0); setSource(null); onCancelEdit?.() }
+  useEffect(() => { if (capture) { setPressed(null); setDone(false); setStep(0) } }, [capture])
+  useEffect(() => { setPressed(null); setDone(false) }, [edit])
+  const reset = () => { setPressed(null); setDone(false); setStep(0); setSource(null); setSrcName(null); onCancelEdit?.() }
   const makeChanges = async () => {
     if (!pressed) return setStep(2)
     const cur = (await db.get(pressed.id)) ?? pressed
@@ -33,9 +36,18 @@ export default function Studio({ onDone, onPlay, recordCount, edit, onCancelEdit
       const next = { ...cur, reedits: (cur.reedits ?? 0) + 1 }
       await db.put(next); setPressed(next); onDone(next)
     } else setPressed(cur)
-    setStep(2)
+    setDone(false); setStep(2)
   }
   const [source, setSource] = useState<Float32Array | null>(null)
+  const [srcName, setSrcName] = useState<string | null>(null)
+  /** every real take (mic or import) goes into the vault's voice library */
+  const saveTake = (pcm: Float32Array, name: string) => {
+    void voices.put({ id: crypto.randomUUID(), name, createdAt: Date.now(), duration: pcm.length / SR, wave: waveform(pcm), pcm: new Blob([pcm.slice().buffer]) }).then(() => onVoiceSaved?.())
+  }
+  useEffect(() => {
+    if (!reuse) return
+    setPressed(null); setDone(false); onCancelEdit?.(); setSource(reuse.pcm); setSrcName(reuse.name); setStep(0)
+  }, [reuse])
   const [meta, setMeta] = useState({ title: 'The Porch Song', recipient: 'Nana Ruth', sender: 'Theo', dedication: 'For every summer evening you hummed this to me.', occasion: 'Grandparents', date: new Date().toISOString().slice(0, 10), sideA: 'Side A', sideB: 'Side B' })
   const [presetId, setPreset] = useState('warm')
   const [styleId, setStyle] = useState('ruby')
@@ -77,13 +89,13 @@ export default function Studio({ onDone, onPlay, recordCount, edit, onCancelEdit
     <div className="flex h-full flex-col">
       <header className="px-6 pt-4">
         <div className="flex items-center justify-between gap-3"><Eyebrow>Studio · {STEPS[step]}</Eyebrow><ProButton /></div>
-        {base && !(pressed && step === 4) && <div className="mt-3 flex items-center gap-2 rounded-full border border-amber/40 bg-amber/10 py-1 pl-3 pr-1 text-xs text-cream/85"><span className="min-w-0 flex-1 truncate">Changing “{base.title}”</span><button type="button" onClick={reset} disabled={!!render} className="min-h-9 rounded-full px-3 text-muted hover:text-cream">New record</button></div>}
+        {base && !(done && step === 4) && <div className="mt-3 flex items-center gap-2 rounded-full border border-amber/40 bg-amber/10 py-1 pl-3 pr-1 text-xs text-cream/85"><span className="min-w-0 flex-1 truncate">Changing “{base.title}”</span><button type="button" onClick={reset} disabled={!!render} className="min-h-9 rounded-full px-3 text-muted hover:text-cream">New record</button></div>}
         <div className="mt-3 flex gap-1.5" role="progressbar" aria-valuenow={step + 1} aria-valuemax={5}>
           {STEPS.map((s, i) => <span key={s} className={`h-0.5 flex-1 rounded-full ${i <= step ? 'bg-amber' : 'bg-cream/10'}`} />)}
         </div>
       </header>
       <div className="no-scrollbar relative flex-1 overflow-y-auto bg-[radial-gradient(120%_60%_at_50%_0%,rgba(217,119,6,.10),transparent_60%)] px-6 pb-8 pt-6">
-        {step === 0 && <Capture source={source} setSource={setSource} max={pro ? PRO_SECONDS : FREE.maxSeconds} pro={pro} />}
+        {step === 0 && <Capture source={source} setSource={setSource} srcName={srcName} setSrcName={setSrcName} onTake={saveTake} max={pro ? PRO_SECONDS : FREE.maxSeconds} pro={pro} />}
         {step === 1 && <Dedication meta={meta} setMeta={setMeta} />}
         {step === 2 && (
           <div className="space-y-7">
@@ -217,11 +229,11 @@ export default function Studio({ onDone, onPlay, recordCount, edit, onCancelEdit
             <div className={`relative grid h-52 w-52 place-items-center rounded-full shadow-[0_30px_60px_-20px_black,0_0_0_6px_rgba(180,83,9,.25),0_0_60px_-10px_rgba(217,119,6,.35)] ${render ? 'animate-spin [animation-duration:1.8s]' : ''}`} style={{ background: `repeating-radial-gradient(${style.disc} 0 2px, #2a2522 3px 4px)` }}>
               <span className="grid h-16 w-16 place-items-center rounded-full font-display text-xs" style={{ background: style.label, color: style.ink }}>VR</span>
             </div>
-            <h2 className="mt-8 font-display text-3xl">{render ? 'Pressing your record' : pressed ? 'Pressed! It’s on your shelf.' : 'Ready to press.'}</h2>
+            <h2 className="mt-8 font-display text-3xl">{render ? 'Pressing your record' : done ? 'Pressed! It’s on your shelf.' : pressed ? 'Ready to press your changes.' : 'Ready to press.'}</h2>
             <p className="mt-2 text-sm text-muted">{render ? render.stage : `${PRESETS.find((p) => p.id === presetId)!.name} · ${CRACKLES.find((c) => c.id === crackleId)!.name} · ${MUSIC.find((m) => m.id === music)!.name} · ${style.name}. Every crackle is computed on this device.`}</p>
             {render && <div className="mt-6 h-1 w-full overflow-hidden rounded-full bg-cream/10"><div className="h-full bg-amber transition-[width]" style={{ width: `${render.p * 100}%` }} /></div>}
             {render && <p className="mt-2 font-mono text-xs text-muted">{Math.round(render.p * 100)}%</p>}
-            {pressed && !render && (
+            {done && pressed && !render && (
               <div className="mt-7 w-full space-y-3">
                 <button type="button" onClick={() => onPlay(pressed)} className="min-h-14 w-full rounded-full bg-gradient-to-b from-[#f0c86a] via-[#c99234] to-[#8a5a1a] font-deco text-sm uppercase tracking-[0.2em] text-obsidian">▶ Play my record</button>
                 <button type="button" onClick={() => void makeChanges()} className="flex min-h-14 w-full items-center justify-center gap-2 rounded-full border border-amber/50 text-base text-cream">
@@ -234,8 +246,8 @@ export default function Studio({ onDone, onPlay, recordCount, edit, onCancelEdit
         )}
       </div>
       <footer className="flex items-center justify-between border-t border-brass/15 px-6 py-3">
-        <Btn variant="quiet" onClick={() => (pressed && step === 4 ? void makeChanges() : setStep((s) => s - 1))} disabled={step === 0 || !!render}>Back</Btn>
-        {pressed && step === 4 ? (
+        <Btn variant="quiet" onClick={() => (done && step === 4 ? void makeChanges() : setStep((s) => s - 1))} disabled={step === 0 || !!render}>Back</Btn>
+        {done && pressed && step === 4 ? (
           <Btn onClick={() => onPlay(pressed)}>Play</Btn>
         ) : step < 4 ? (
           <Btn onClick={() => setStep((s) => s + 1)} disabled={step === 0 && !source}>Continue</Btn>
@@ -253,15 +265,15 @@ export default function Studio({ onDone, onPlay, recordCount, edit, onCancelEdit
             const settings: StudioSettings = { presetId, styleId, crackleId, music, musicLevel, crackleLevel, character, volume, moodId }
             const rec: StoredRecord = { ...prev, id, ...meta, presetId, crackleId, musicId: music, styleId, duration: l.length / SR, wave: waveform(l), createdAt: prev?.createdAt ?? Date.now(), favorite: prev?.favorite ?? false, master, voice: new Blob([source!.slice().buffer]), settings }
             await db.put(rec); navigator.vibrate?.([10, 40, 20])
-            setRender(null); setPressed(rec); onDone(rec)
-          }}>Press record</Btn>
+            setRender(null); setPressed(rec); setDone(true); onDone(rec)
+          }}>{pressed ? 'Press again' : 'Press record'}</Btn>
         )}
       </footer>
     </div>
   )
 }
 
-function Capture({ source, setSource, max: MAX, pro }: { source: Float32Array | null; setSource: (s: Float32Array | null) => void; max: number; pro: boolean }) {
+function Capture({ source, setSource, srcName, setSrcName, onTake, max: MAX, pro }: { source: Float32Array | null; setSource: (s: Float32Array | null) => void; srcName: string | null; setSrcName: (n: string | null) => void; onTake: (pcm: Float32Array, name: string) => void; max: number; pro: boolean }) {
   const [trimmed, setTrimmed] = useState(false)
   const [state, setState] = useState<'idle' | 'rec' | 'paused' | 'denied'>('idle')
   const [t, setT] = useState(0)
@@ -271,7 +283,6 @@ function Capture({ source, setSource, max: MAX, pro }: { source: Float32Array | 
   const raf = useRef(0)
   const previewUrl = useRef<string | null>(null)
   const [url, setUrl] = useState<string | null>(null)
-  const [srcName, setSrcName] = useState<string | null>(null)
   const player = useRef<HTMLAudioElement>(null)
   const [pl, setPl] = useState({ on: false, t: 0 })
 
@@ -290,7 +301,7 @@ function Capture({ source, setSource, max: MAX, pro }: { source: Float32Array | 
     const buf = new Float32Array(an.fftSize), chunks: Blob[] = []
     const rec = new MediaRecorder(stream); mr.current = rec
     rec.ondataavailable = (e) => chunks.push(e.data)
-    rec.onstop = async () => { stream.getTracks().forEach((t) => t.stop()); ctx.close(); setSource(await decodeToMono(new Blob(chunks, { type: rec.mimeType }))); setSrcName(`Microphone take · ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`); setState('idle') }
+    rec.onstop = async () => { stream.getTracks().forEach((t) => t.stop()); ctx.close(); const pcm = await decodeToMono(new Blob(chunks, { type: rec.mimeType })), name = `Microphone take · ${new Date().toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}`; setSource(pcm); setSrcName(name); onTake(pcm, name); setState('idle') }
     rec.start(250); setState('rec'); setLive([]); setT(0); navigator.vibrate?.(12)
     let lastT = performance.now()
     const loop = (now: number) => {
@@ -356,7 +367,7 @@ function Capture({ source, setSource, max: MAX, pro }: { source: Float32Array | 
       <div className="mt-6 flex items-center gap-3 deco text-[12px] tracking-[.2em] text-muted/70" aria-hidden><span className="h-px flex-1 bg-brass/20" />or<span className="h-px flex-1 bg-brass/20" /></div>
       <div className="mt-4 grid grid-cols-2 gap-2">
         <label className="flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-full border border-brass/40 bg-panel/60 text-sm transition hover:border-amber-bright hover:bg-panel">
-          <span className="text-amber-bright" aria-hidden>↥</span>Import audio<input type="file" accept="audio/*" className="sr-only" onChange={async (e) => { const f = e.target.files?.[0]; if (f) { const raw = await decodeToMono(f).catch(() => null), d = raw && raw.length > MAX * SR ? raw.slice(0, MAX * SR) : raw; setSource(d); setSrcName(d ? f.name : null); setTrimmed(!!raw && raw.length > MAX * SR) } e.target.value = '' }} />
+          <span className="text-amber-bright" aria-hidden>↥</span>Import audio<input type="file" accept="audio/*" className="sr-only" onChange={async (e) => { const f = e.target.files?.[0]; if (f) { const raw = await decodeToMono(f).catch(() => null), d = raw && raw.length > MAX * SR ? raw.slice(0, MAX * SR) : raw; setSource(d); setSrcName(d ? f.name : null); if (d) onTake(d, f.name); setTrimmed(!!raw && raw.length > MAX * SR) } e.target.value = '' }} />
         </label>
         <Btn variant="ghost" onClick={() => { setSource(demoVoice()); setSrcName('Lullaby · built-in demo') }}>Use a lullaby</Btn>
       </div>

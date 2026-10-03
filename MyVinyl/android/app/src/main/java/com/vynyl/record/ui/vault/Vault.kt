@@ -33,6 +33,9 @@ import com.vynyl.record.audio.PRESETS
 import com.vynyl.record.audio.STYLES
 import com.vynyl.record.data.RecordMeta
 import com.vynyl.record.data.RecordStore
+import com.vynyl.record.data.SavedVoice
+import com.vynyl.record.data.VoiceStore
+import androidx.compose.runtime.saveable.rememberSaveable
 import com.vynyl.record.pro.Free
 import com.vynyl.record.pro.Pro
 import com.vynyl.record.ui.components.*
@@ -43,7 +46,9 @@ import kotlinx.coroutines.launch
 private enum class Sort(val label: String) { Newest("Newest"), Oldest("Oldest"), Title("Title"), Duration("Longest") }
 
 @Composable
-fun Vault(records: List<RecordMeta>, onPlay: (RecordMeta) -> Unit, onNew: () -> Unit) {
+fun Vault(records: List<RecordMeta>, onPlay: (RecordMeta) -> Unit, onNew: () -> Unit, onUseVoice: (SavedVoice) -> Unit = {}) {
+    var shelf by rememberSaveable { mutableStateOf("records") }
+    val voices by VoiceStore.voices.collectAsState()
     var q by remember { mutableStateOf("") }
     var grid by remember { mutableStateOf(true) }
     var fav by remember { mutableStateOf(false) }
@@ -66,8 +71,17 @@ fun Vault(records: List<RecordMeta>, onPlay: (RecordMeta) -> Unit, onNew: () -> 
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Eyebrow("MASTER VAULT · ${records.size} PRESSED"); ProButton()
                 }
-                Text("Your shelf", Modifier.padding(top = 4.dp), style = displayStyle(36))
-                if (!pro) {
+                Text(if (shelf == "records") "Your shelf" else "Your voices", Modifier.padding(top = 4.dp), style = displayStyle(36))
+                Row(Modifier.padding(top = 12.dp).fillMaxWidth().clip(CircleShape).background(V.panel).border(1.dp, V.brass.copy(.25f), CircleShape).padding(4.dp)) {
+                    listOf("records" to "Records · ${records.size}", "voices" to "Voices · ${voices.size}").forEach { (id, label) ->
+                        val on = shelf == id
+                        Box(Modifier.weight(1f).heightIn(min = 40.dp).clip(CircleShape).background(if (on) V.amber.copy(.2f) else Color.Transparent)
+                            .then(if (on) Modifier.border(1.dp, V.amber.copy(.5f), CircleShape) else Modifier).clickable { shelf = id }, contentAlignment = Alignment.Center) {
+                            Text(label, style = sansStyle(14, if (on) V.cream else V.muted))
+                        }
+                    }
+                }
+                if (shelf == "records" && !pro) {
                     val sh = RoundedCornerShape(12.dp)
                     Column(Modifier.padding(top = 12.dp).fillMaxWidth().clip(sh).background(V.panel.copy(.7f)).border(1.dp, V.brass.copy(.25f), sh)
                         .clickable { Pro.openPaywall("Free shelves hold three records. Go Pro to keep every voice you press.") }.padding(horizontal = 14.dp, vertical = 10.dp)) {
@@ -80,6 +94,7 @@ fun Vault(records: List<RecordMeta>, onPlay: (RecordMeta) -> Unit, onNew: () -> 
                         }
                     }
                 }
+                if (shelf == "records") {
                 BasicTextField(q, { q = it }, Modifier.padding(top = 16.dp).fillMaxWidth().clip(CircleShape).background(V.panel).border(1.dp, V.brass.copy(.25f), CircleShape).padding(horizontal = 16.dp, vertical = 10.dp),
                     textStyle = sansStyle(14), singleLine = true, cursorBrush = SolidColor(V.amberBright),
                     decorationBox = { inner -> Box { if (q.isEmpty()) Text("Search titles, people, occasions", style = sansStyle(14, V.muted.copy(.6f))); inner() } })
@@ -99,8 +114,11 @@ fun Vault(records: List<RecordMeta>, onPlay: (RecordMeta) -> Unit, onNew: () -> 
                         }
                     }
                 }
+                }
             }
-            if (records.isEmpty()) {
+            if (shelf == "voices") {
+                VoiceShelf(voices, Modifier.weight(1f), onUseVoice, onNew)
+            } else if (records.isEmpty()) {
                 Column(Modifier.weight(1f).fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                     Canvas(Modifier.size(128.dp)) {
                         var r = size.minDimension / 2
@@ -192,5 +210,81 @@ private fun Sleeve(r: RecordMeta, modifier: Modifier, small: Boolean = false) {
         }
         if (!small) Text(r.title, Modifier.align(Alignment.BottomStart).padding(8.dp).fillMaxWidth(.62f), style = displayStyle(14).copy(lineHeight = androidx.compose.ui.unit.TextUnit(17f, androidx.compose.ui.unit.TextUnitType.Sp)),
             color = if (st.ink == 0xFF0C0A09L) V.cream else ink)
+    }
+}
+
+/** Every take you've recorded or imported, kept so it can be pressed again with a new sound. */
+@Composable
+private fun VoiceShelf(voices: List<SavedVoice>, modifier: Modifier, onUse: (SavedVoice) -> Unit, onNew: () -> Unit) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val scope = rememberCoroutineScope()
+    var playingId by remember { mutableStateOf<String?>(null) }
+    var player by remember { mutableStateOf<com.vynyl.record.audio.WavPlayer?>(null) }
+    var confirm by remember { mutableStateOf<SavedVoice?>(null) }
+    val isPlaying by (player?.isPlaying ?: kotlinx.coroutines.flow.MutableStateFlow(false)).collectAsState()
+    LaunchedEffect(isPlaying) { if (!isPlaying && player != null) { player?.release(); player = null; playingId = null } }
+    DisposableEffect(Unit) { onDispose { player?.release() } }
+    fun stop() { player?.release(); player = null; playingId = null }
+    fun toggle(v: SavedVoice) {
+        val was = playingId; stop(); if (was == v.id) return
+        scope.launch {
+            val pcm = VoiceStore.load(v.id) ?: return@launch
+            val f = java.io.File(ctx.cacheDir, "voice-preview.wav")
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { f.writeBytes(com.vynyl.record.audio.encodeWav(com.vynyl.record.audio.Stereo(pcm, pcm))) }
+            player = com.vynyl.record.audio.WavPlayer(f).also { it.play() }; playingId = v.id
+        }
+    }
+    val list = remember(voices) { voices.sortedByDescending { it.createdAt } }
+    val date = remember { java.text.SimpleDateFormat("d MMM yyyy", java.util.Locale.getDefault()) }
+    Box(modifier.fillMaxWidth()) {
+        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(24.dp, 20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            item {
+                Text("Every voice you record or import is kept here. Tap Use in Studio to press it again with a different sound or wax.", style = sansStyle(13, V.muted), modifier = Modifier.padding(bottom = 6.dp))
+            }
+            if (list.isEmpty()) item {
+                Column(Modifier.fillMaxWidth().padding(top = 32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Canvas(Modifier.size(96.dp)) { drawCircle(V.brass.copy(.4f), size.minDimension / 2, style = Stroke(1.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 6f)))) }
+                    Text("No voices yet. Your first recording will appear here.", Modifier.widthIn(max = 240.dp).padding(top = 20.dp), style = displayStyle(20), textAlign = TextAlign.Center)
+                    Btn("Record a voice", onNew, Modifier.padding(top = 20.dp))
+                }
+            }
+            items(list, key = { it.id }) { v ->
+                val on = playingId == v.id
+                val sh = RoundedCornerShape(16.dp)
+                Column(Modifier.fillMaxWidth().clip(sh).background(if (on) V.amber.copy(.1f) else V.panel).border(1.dp, if (on) V.amber else V.brass.copy(.2f), sh).padding(12.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Box(Modifier.size(44.dp).clip(CircleShape).background(Brush.verticalGradient(listOf(Color(0xFFE0B85A), Color(0xFF8A5A1A)))).clickable { toggle(v) }, contentAlignment = Alignment.Center) {
+                            Text(if (on) "■" else "▶", style = sansStyle(16, V.obsidian, 700))
+                        }
+                        Column(Modifier.weight(1f)) {
+                            Text(v.name, style = displayStyle(17), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text("${fmt(v.duration)} · ${date.format(java.util.Date(v.createdAt))}", Modifier.padding(top = 2.dp), style = monoStyle(11))
+                        }
+                    }
+                    Wave(v.wave, modifier = Modifier.padding(top = 8.dp).fillMaxWidth().height(32.dp))
+                    Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.weight(1f).heightIn(min = 44.dp).clip(CircleShape).background(V.amber.copy(.15f)).border(1.dp, V.amber.copy(.6f), CircleShape).clickable { stop(); onUse(v) }, contentAlignment = Alignment.Center) {
+                            Text("Use in Studio", style = sansStyle(14, V.cream, 600))
+                        }
+                        Text("Delete", Modifier.clip(CircleShape).clickable { confirm = v }.padding(horizontal = 16.dp, vertical = 12.dp), style = sansStyle(14, V.muted))
+                    }
+                }
+            }
+        }
+        confirm?.let { c ->
+            Box(Modifier.fillMaxSize().background(V.obsidian.copy(.7f)).clickable(remember { MutableInteractionSource() }, null) { confirm = null }, contentAlignment = Alignment.BottomCenter) {
+                val sh = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+                Column(Modifier.fillMaxWidth().clip(sh).background(V.stone).clickable(remember { MutableInteractionSource() }, null) {}.padding(24.dp)) {
+                    Text("Delete this voice?", style = displayStyle(24))
+                    Text("“${c.name}” will be removed from your voice library. Records already pressed with it stay on your shelf.", Modifier.padding(top = 8.dp), style = sansStyle(14, V.muted))
+                    Row(Modifier.padding(top = 24.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Btn("Keep it", { confirm = null }, Modifier.weight(1f), BtnVariant.Ghost)
+                        Box(Modifier.weight(1f).heightIn(min = 44.dp).clip(CircleShape).background(V.err).clickable { if (playingId == c.id) stop(); scope.launch { VoiceStore.delete(c.id); confirm = null } }, contentAlignment = Alignment.Center) {
+                            Text("Delete", style = sansStyle(14, V.obsidian, 600))
+                        }
+                    }
+                }
+            }
+        }
     }
 }
